@@ -41,7 +41,8 @@ router.post("/", async (req, res) => {
       {
         id: user.id,
         username: user.username,
-        email: user.email
+        email: user.email,
+        role: user.role
       },
       SECRET_KEY,
       { expiresIn: "5h" }
@@ -54,7 +55,8 @@ router.post("/", async (req, res) => {
         id: user.id,
         username: user.username,
         full_name: user.full_name,
-        email: user.email
+        email: user.email,
+        role: user.role
       }
     });
 
