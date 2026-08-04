@@ -1,16 +1,16 @@
 const express = require("express");
-const {
-    getPIC,
-    createPIC,
-    updatePIC,
-    deletePIC,
-} = require("../controllers/picController");
-
 const router = express.Router();
 
-router.get("/", getPIC);
-router.post("/", createPIC);
-router.put("/:id", updatePIC);
-router.delete("/:id", deletePIC);
+const picController = require("../controllers/picController");
+const authenticate = require("../middleware/auth");
+const authorizeRole = require("../middleware/authorize");
+
+router.get("/", authenticate, authorizeRole(["admin","juri","panitia"]), picController.getPIC);
+
+router.post("/", authenticate, authorizeRole(["admin","juri"]), picController.createPIC);
+
+router.put("/:id", authenticate, authorizeRole(["admin"]), picController.updatePIC);
+
+router.delete("/:id", authenticate, authorizeRole(["admin"]), picController.deletePIC);
 
 module.exports = router;

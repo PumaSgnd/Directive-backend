@@ -1,69 +1,70 @@
-const picModel = require("../models/picModel");
+const userModel = require("../models/userModel");
+const bcrypt = require("bcryptjs");
 
 const getPIC = async (req, res) => {
-    try {
-        const data = await picModel.getAllPIC();
-        res.status(200).json(data);
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: "Error fetching PIC" });
-    }
+  const users = await userModel.getUsersByRole("panitia");
+
+  const result = users.map(u => ({
+    id: u.id,
+    name: u.full_name
+  }));
+
+  res.json(result);
 };
 
 const createPIC = async (req, res) => {
-    const { name } = req.body;
+  const { full_name, username, email, password } = req.body;
 
-    if (!name) {
-        return res.status(400).json({ message: "Name is required" });
-    }
+  const hashedPassword = await bcrypt.hash(password, 10);
 
-    try {
-        const data = await picModel.createPIC(name);
-        res.status(201).json(data);
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: "Error creating PIC" });
-    }
+  const result = await userModel.createUser({
+    full_name,
+    username: username.toLowerCase().trim(),
+    email: email.toLowerCase().trim(),
+    password: hashedPassword,
+    role: "panitia"
+  });
+
+  res.status(201).json({
+    id: result.insertId,
+    name: full_name
+  });
 };
 
 const updatePIC = async (req, res) => {
-    const { id } = req.params;
-    const { name } = req.body;
+  const { id } = req.params;
+  const { full_name, username, email } = req.body;
 
-    try {
-        const data = await picModel.updatePIC(id, name);
+  const affected = await userModel.updateUser(
+    id,
+    username.toLowerCase().trim(),
+    full_name.trim(),
+    email.toLowerCase().trim(),
+    "panitia"
+  );
 
-        if (!data) {
-            return res.status(404).json({ message: "PIC not found" });
-        }
+  if (!affected) {
+    return res.status(404).json({ message: "PIC not found" });
+  }
 
-        res.status(200).json(data);
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: "Error updating PIC" });
-    }
+  res.json({ message: "PIC updated" });
 };
 
 const deletePIC = async (req, res) => {
-    const { id } = req.params;
+  const { id } = req.params;
 
-    try {
-        const affected = await picModel.deletePIC(id);
+  const affected = await userModel.deleteUser(id);
 
-        if (affected === 0) {
-            return res.status(404).json({ message: "PIC not found" });
-        }
+  if (!affected) {
+    return res.status(404).json({ message: "PIC not found" });
+  }
 
-        res.status(200).json({ message: "PIC deleted successfully" });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: "Error deleting PIC" });
-    }
+  res.json({ message: "PIC deleted" });
 };
 
 module.exports = {
-    getPIC,
-    createPIC,
-    updatePIC,
-    deletePIC,
+  getPIC,
+  createPIC,
+  updatePIC,
+  deletePIC
 };

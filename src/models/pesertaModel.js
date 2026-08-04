@@ -7,10 +7,10 @@ const getAllPeserta = async () => {
     return rows;
 };
 
-const createPeserta = async (name, regional) => {
+const createPeserta = async (name, regional, weight) => {
     const [result] = await pool.query(
-        "INSERT INTO peserta (name, regional) VALUES (?, ?)",
-        [name, regional]
+        "INSERT INTO peserta (name, regional, weight) VALUES (?, ?, ?)",
+        [name, regional, weight]
     );
 
     const [rows] = await pool.query(
@@ -21,10 +21,10 @@ const createPeserta = async (name, regional) => {
     return rows[0];
 };
 
-const updatePeserta = async (id, name, regional) => {
+const updatePeserta = async (id, name, regional, weight) => {
     const [result] = await pool.query(
-        "UPDATE peserta SET name = ?, regional = ? WHERE id = ?",
-        [name, regional, id]
+        "UPDATE peserta SET name = ?, regional = ?, weight = ? WHERE id = ?",
+        [name, regional, weight, id]
     );
 
     if (result.affectedRows === 0) return null;

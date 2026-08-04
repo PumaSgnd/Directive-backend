@@ -7,6 +7,9 @@ const disciplineRoutes = require("./src/routes/discipline.js");
 const picRoutes = require("./src/routes/picRoutes.js");
 const juriRoutes = require("./src/routes/juriRoutes.js");
 const pesertaRoutes = require("./src/routes/pesertaRoutes.js");
+const errorHandler = require("./src/middleware/errorHandler");
+const pertandinganRoute = require("./src/routes/pertandinganRoute.js");
+const penilaianRoute = require("./src/routes/penilaianRoutes.js");
 
 require("dotenv").config();
 
@@ -22,7 +25,11 @@ app.use("/api/user", userRoute);
 app.use("/api/discipline", disciplineRoutes);
 app.use("/api/pic", picRoutes);
 app.use("/api/juri", juriRoutes);
-app.use("/api/peserta", pesertaRoutes)
+app.use("/api/peserta", pesertaRoutes);
+app.use("/api/pertandingan", pertandinganRoute);
+app.use("/api/penilaian", penilaianRoute);
+
+app.use(errorHandler);
 
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);

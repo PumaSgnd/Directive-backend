@@ -45,7 +45,7 @@ router.post("/", async (req, res) => {
         role: user.role
       },
       SECRET_KEY,
-      { expiresIn: "5h" }
+      { expiresIn: "16h" }
     );
 
     res.status(200).json({

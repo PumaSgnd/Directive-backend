@@ -11,16 +11,21 @@ const getPeserta = async (req, res) => {
 };
 
 const createPeserta = async (req, res) => {
-    const { name, regional } = req.body;
+    const { name, regional, weight } = req.body;
 
-    if (!name || !regional) {
+    if (!name || !regional || weight === undefined || isNaN(weight)) {
         return res.status(400).json({
-            message: "Name and regional are required",
+            message: "Name, regional and weight are required",
         });
     }
 
     try {
-        const data = await pesertaModel.createPeserta(name, regional);
+        const data = await pesertaModel.createPeserta(
+            name,
+            regional,
+            parseFloat(weight)
+        );
+
         res.status(201).json(data);
     } catch (error) {
         console.error(error);
@@ -30,25 +35,34 @@ const createPeserta = async (req, res) => {
 
 const updatePeserta = async (req, res) => {
     const { id } = req.params;
-    const { name, regional } = req.body;
+    const { name, regional, weight } = req.body;
 
-    if (!name || !regional) {
+    if (!name || !regional || weight === undefined || isNaN(weight)) {
         return res.status(400).json({
-            message: "Name and regional are required",
+            message: "Name, regional and weight are required",
         });
     }
 
     try {
-        const data = await pesertaModel.updatePeserta(id, name, regional);
+        const data = await pesertaModel.updatePeserta(
+            id,
+            name,
+            regional,
+            parseFloat(weight)
+        );
 
         if (!data) {
-            return res.status(404).json({ message: "Peserta not found" });
+            return res.status(404).json({
+                message: "Peserta not found",
+            });
         }
 
         res.status(200).json(data);
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: "Error updating Peserta" });
+        res.status(500).json({
+            message: "Error updating Peserta",
+        });
     }
 };
 

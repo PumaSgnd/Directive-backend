@@ -1,69 +1,70 @@
-const JuriModel = require("../models/juriModel");
+const userModel = require("../models/userModel");
+const bcrypt = require("bcryptjs");
 
 const getJuri = async (req, res) => {
-    try {
-        const data = await JuriModel.getAllJuri();
-        res.status(200).json(data);
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: "Error fetching Juri" });
-    }
+  const users = await userModel.getUsersByRole("juri");
+
+  const result = users.map(u => ({
+    id: u.id,
+    name: u.full_name
+  }));
+
+  res.json(result);
 };
 
 const createJuri = async (req, res) => {
-    const { name } = req.body;
+  const { full_name, username, email, password } = req.body;
 
-    if (!name) {
-        return res.status(400).json({ message: "Name is required" });
-    }
+  const hashedPassword = await bcrypt.hash(password, 10);
 
-    try {
-        const data = await JuriModel.createJuri(name);
-        res.status(201).json(data);
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: "Error creating Juri" });
-    }
+  const result = await userModel.createUser({
+    full_name,
+    username: username.toLowerCase().trim(),
+    email: email.toLowerCase().trim(),
+    password: hashedPassword,
+    role: "juri"
+  });
+
+  res.status(201).json({
+    id: result.insertId,
+    name: full_name
+  });
 };
 
 const updateJuri = async (req, res) => {
-    const { id } = req.params;
-    const { name } = req.body;
+  const { id } = req.params;
+  const { full_name, username, email } = req.body;
 
-    try {
-        const data = await JuriModel.updateJuri(id, name);
+  const affected = await userModel.updateUser(
+    id,
+    username.toLowerCase().trim(),
+    full_name.trim(),
+    email.toLowerCase().trim(),
+    "juri"
+  );
 
-        if (!data) {
-            return res.status(404).json({ message: "Juri not found" });
-        }
+  if (!affected) {
+    return res.status(404).json({ message: "PIC not found" });
+  }
 
-        res.status(200).json(data);
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: "Error updating Juri" });
-    }
+  res.json({ message: "PIC updated" });
 };
 
 const deleteJuri = async (req, res) => {
-    const { id } = req.params;
+  const { id } = req.params;
 
-    try {
-        const affected = await JuriModel.deleteJuri(id);
+  const affected = await userModel.deleteUser(id);
 
-        if (affected === 0) {
-            return res.status(404).json({ message: "Juri not found" });
-        }
+  if (!affected) {
+    return res.status(404).json({ message: "Juri not found" });
+  }
 
-        res.status(200).json({ message: "Juri deleted successfully" });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: "Error deleting Juri" });
-    }
+  res.json({ message: "Juri deleted" });
 };
 
 module.exports = {
-    getJuri,
-    createJuri,
-    updateJuri,
-    deleteJuri,
+  getJuri,
+  createJuri,
+  updateJuri,
+  deleteJuri
 };

@@ -1,18 +1,14 @@
 const express = require("express");
 const router = express.Router();
+
 const userController = require("../controllers/userController");
-const upload = require("../middleware/uploadPhoto");
+const authenticate = require("../middleware/auth");
+const authorizeRole = require("../middleware/authorize");
 
-router.get("/", userController.getUsers);
-router.get("/:id", userController.getUserProfile);
-router.post("/", userController.createUser);
-
-router.put("/:id", userController.updateUser);
-
-router.put(
-    "/photo/:id",
-    upload.single("photo"),
-    userController.updateProfilePhoto
-);
+// admin only
+router.get("/", authenticate, authorizeRole(["admin"]), userController.getUsers);
+router.post("/", authenticate, authorizeRole(["admin"]), userController.createUser);
+router.put("/:id", authenticate, authorizeRole(["admin"]), userController.updateUser);
+router.delete("/:id", authenticate, authorizeRole(["admin"]), userController.deleteUser);
 
 module.exports = router;

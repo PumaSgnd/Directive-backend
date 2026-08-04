@@ -1,35 +1,33 @@
 const pool = require("../config/db");
 
-const getUsers = async () => {
+const getUsersByRole = async (role) => {
   const [rows] = await pool.query(
-    "SELECT id, username, full_name, email, role, password, photo FROM users ORDER BY id ASC"
+    "SELECT id, full_name, username, email, role FROM users WHERE role = ? ORDER BY id ASC",
+    [role]
+  );
+  return rows;
+};
+
+const getAllUsers = async () => {
+  const [rows] = await pool.query(
+    "SELECT id, full_name, username, email, role FROM users ORDER BY id ASC"
   );
   return rows;
 };
 
 const getUserById = async (id) => {
   const [rows] = await pool.query(
-    "SELECT id, username, full_name, email, role, password, photo FROM users WHERE id = ?",
+    "SELECT id, role FROM users WHERE id=?",
     [id]
   );
   return rows[0];
 };
 
 const createUser = async ({ full_name, username, email, password, role }) => {
-
-  const query = `
-    INSERT INTO users (full_name, username, email, password, role)
-    VALUES (?, ?, ?, ?, ?)
-  `;
-
-  const [result] = await pool.execute(query, [
-    full_name,
-    username,
-    email,
-    password,
-    role
-  ]);
-
+  const [result] = await pool.query(
+    "INSERT INTO users (full_name, username, email, password, role) VALUES (?, ?, ?, ?, ?)",
+    [full_name, username, email, password, role]
+  );
   return result;
 };
 
@@ -38,23 +36,22 @@ const updateUser = async (id, username, full_name, email, role) => {
     "UPDATE users SET username=?, full_name=?, email=?, role=? WHERE id=?",
     [username, full_name, email, role, id]
   );
-
   return result.affectedRows;
 };
 
-const updateUserPhoto = async (id, photo) => {
+const deleteUser = async (id) => {
   const [result] = await pool.query(
-    "UPDATE users SET photo=? WHERE id=?",
-    [photo, id]
+    "DELETE FROM users WHERE id=?",
+    [id]
   );
-
   return result.affectedRows;
 };
 
 module.exports = {
-  getUsers,
+  getUsersByRole,
+  getAllUsers,
   getUserById,
   createUser,
   updateUser,
-  updateUserPhoto
+  deleteUser
 };
