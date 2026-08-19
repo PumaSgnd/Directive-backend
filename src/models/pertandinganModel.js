@@ -2,7 +2,8 @@ const pool = require("../config/db");
 const scoreboardModel = require("./scoreboardModel");
 
 const NEXT_BABAK = {
-    penyisihan: "perempat_final",
+    penyisihan: "enam_belas_besar",
+    enam_belas_besar: "perempat_final",
     perempat_final: "semi_final",
     semi_final: "final",
     final: null,
@@ -483,44 +484,200 @@ const finishPertandingan = async (id) => {
     }
 };
 
-const generateNextBabak = async (babak) => {
+const pairPesertaByWeight = (peserta) => {
+    if (!Array.isArray(peserta) || peserta.length === 0) {
+        return {
+            pairs: [],
+            bye: null
+        };
+    }
 
+    const normalized = peserta.map((item) => ({
+        id: Number(item.id),
+        name: item.name,
+        weight:
+            item.weight !== null &&
+            item.weight !== undefined &&
+            !Number.isNaN(Number(item.weight))
+                ? Number(item.weight)
+                : Infinity
+    }));
+
+    normalized.sort((a, b) => {
+        if (a.weight === Infinity && b.weight === Infinity) {
+            return a.id - b.id;
+        }
+
+        if (a.weight === Infinity) {
+            return 1;
+        }
+
+        if (b.weight === Infinity) {
+            return -1;
+        }
+
+        if (a.weight !== b.weight) {
+            return a.weight - b.weight;
+        }
+
+        return a.id - b.id;
+    });
+
+    let bye = null;
+
+    if (normalized.length % 2 !== 0) {
+        bye = normalized.pop();
+    }
+
+    const remaining = [...normalized];
+    const pairs = [];
+
+    while (remaining.length >= 2) {
+        let bestIndexA = 0;
+        let bestIndexB = 1;
+        let bestDifference = Infinity;
+
+        for (let i = 0; i < remaining.length; i++) {
+            for (let j = i + 1; j < remaining.length; j++) {
+                const weightA = remaining[i].weight;
+                const weightB = remaining[j].weight;
+
+                let difference;
+
+                if (
+                    weightA === Infinity ||
+                    weightB === Infinity
+                ) {
+                    difference = Infinity;
+                } else {
+                    difference = Math.abs(
+                        weightA - weightB
+                    );
+                }
+
+                if (difference < bestDifference) {
+                    bestDifference = difference;
+                    bestIndexA = i;
+                    bestIndexB = j;
+                }
+            }
+        }
+
+        const pesertaA = remaining[bestIndexA];
+        const pesertaB = remaining[bestIndexB];
+
+        pairs.push({
+            peserta1_id: pesertaA.id,
+            peserta2_id: pesertaB.id,
+            peserta1_weight: pesertaA.weight,
+            peserta2_weight: pesertaB.weight,
+            selisih_bb:
+                pesertaA.weight === Infinity ||
+                pesertaB.weight === Infinity
+                    ? null
+                    : Math.abs(
+                        pesertaA.weight -
+                        pesertaB.weight
+                    )
+        });
+
+        if (bestIndexA > bestIndexB) {
+            remaining.splice(bestIndexA, 1);
+            remaining.splice(bestIndexB, 1);
+        } else {
+            remaining.splice(bestIndexB, 1);
+            remaining.splice(bestIndexA, 1);
+        }
+    }
+
+    return {
+        pairs,
+        bye
+    };
+};
+
+const generateNextBabak = async (babak) => {
     const next = NEXT_BABAK[babak];
 
-    if (!next) return;
+    if (!next) {
+        return;
+    }
 
     const [[cek]] = await pool.query(
         `
-        SELECT COUNT(*) total
+        SELECT COUNT(*) AS total
         FROM pertandingan
-        WHERE babak=?
+        WHERE babak = ?
         `,
         [next]
     );
 
-    if (cek.total > 0) return;
+    if (Number(cek.total) > 0) {
+        return;
+    }
 
-    const [match] = await pool.query(
+    const [matches] = await pool.query(
         `
-        SELECT *
+        SELECT
+            id,
+            peserta1_id,
+            peserta2_id,
+            status,
+            winner_id
         FROM pertandingan
-        WHERE babak=?
-        ORDER BY id
+        WHERE babak = ?
+        ORDER BY id ASC
         `,
         [babak]
     );
 
-    if (!match.length) return;
-
-    if (match.some(m => m.status !== "selesai")) {
+    if (!matches.length) {
         return;
     }
 
-    const winners = match.map(m => m.winner_id);
-
-    if (winners.some(id => !id)) {
+    if (
+        matches.some(
+            (match) => match.status !== "selesai"
+        )
+    ) {
         return;
     }
+
+    const winners = matches
+        .map((match) => match.winner_id)
+        .filter(Boolean)
+        .map(Number);
+
+    if (winners.length !== matches.length) {
+        return;
+    }
+
+    const placeholders = winners
+        .map(() => "?")
+        .join(",");
+
+    const [peserta] = await pool.query(
+        `
+        SELECT
+            id,
+            name,
+            weight
+        FROM peserta
+        WHERE id IN (${placeholders})
+        `,
+        winners
+    );
+
+    if (peserta.length !== winners.length) {
+        throw new Error(
+            "Data peserta pemenang tidak lengkap."
+        );
+    }
+
+    const {
+        pairs,
+        bye
+    } = pairPesertaByWeight(peserta);
 
     const conn = await pool.getConnection();
 
@@ -531,16 +688,11 @@ const generateNextBabak = async (babak) => {
             `
             SELECT id
             FROM users
-            WHERE role='juri'
+            WHERE role = 'juri'
             `
         );
 
-        for (let i = 0; i < winners.length; i += 2) {
-
-            // Jika jumlah pemenang ganjil, peserta terakhir
-            // otomatis dapat BYE (lolos tanpa bertanding).
-            const isBye = winners[i + 1] === undefined;
-
+        for (const pair of pairs) {
             const [result] = await conn.query(
                 `
                 INSERT INTO pertandingan
@@ -559,58 +711,83 @@ const generateNextBabak = async (babak) => {
                     '2',
                     ?,
                     ?,
-                    ?,
-                    ?,
-                    ?
+                    'belum_mulai',
+                    NULL,
+                    NULL
                 )
                 `,
                 [
                     next,
-                    winners[i],
-                    isBye ? null : winners[i + 1],
-                    isBye ? "selesai" : "belum_mulai",
-                    isBye ? winners[i] : null,
-                    isBye ? new Date() : null
+                    pair.peserta1_id,
+                    pair.peserta2_id
                 ]
             );
 
-            // Pertandingan BYE tidak butuh juri karena
-            // tidak pernah benar-benar dimainkan.
-            if (!isBye) {
-                for (const item of juri) {
-                    await conn.query(
-                        `
-                        INSERT INTO pertandingan_juri
-                        (
-                            pertandingan_id,
-                            user_id
-                        )
-                        VALUES
-                        (
-                            ?,
-                            ?
-                        )
-                        `,
-                        [
-                            result.insertId,
-                            item.id
-                        ]
-                    );
-                }
+            const pertandinganId = result.insertId;
+
+            for (const item of juri) {
+                await conn.query(
+                    `
+                    INSERT INTO pertandingan_juri
+                    (
+                        pertandingan_id,
+                        user_id
+                    )
+                    VALUES
+                    (
+                        ?,
+                        ?
+                    )
+                    `,
+                    [
+                        pertandinganId,
+                        item.id
+                    ]
+                );
             }
         }
+
+        if (bye) {
+            await conn.query(
+                `
+                INSERT INTO pertandingan
+                (
+                    babak,
+                    durasi_menit,
+                    peserta1_id,
+                    peserta2_id,
+                    status,
+                    winner_id,
+                    waktu_selesai
+                )
+                VALUES
+                (
+                    ?,
+                    '2',
+                    ?,
+                    NULL,
+                    'selesai',
+                    ?,
+                    NOW()
+                )
+                `,
+                [
+                    next,
+                    bye.id,
+                    bye.id
+                ]
+            );
+        }
+
         await conn.commit();
+
     } catch (err) {
         await conn.rollback();
         throw err;
-    } finally {
 
+    } finally {
         conn.release();
     }
-
-    // Jika ronde berikutnya ternyata seluruhnya berisi BYE
-    // (misalnya sisa 1 peserta terakhir), generate lagi secara
-    // berantai supaya bracket tidak macet.
     await generateNextBabak(next);
 };
 
