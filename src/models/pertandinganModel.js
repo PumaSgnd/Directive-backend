@@ -10,11 +10,9 @@ const NEXT_BABAK = {
 };
 
 const getAllPertandingan = async (babak) => {
-
     const [rows] = await pool.query(
         `
         SELECT
-
             p.id,
             p.babak,
             p.durasi_menit,
@@ -44,15 +42,58 @@ const getAllPertandingan = async (babak) => {
         LEFT JOIN peserta p2
             ON p2.id = p.peserta2_id
 
-        WHERE (? IS NULL OR p.babak=?)
+        WHERE (? IS NULL OR p.babak = ?)
 
         ORDER BY p.id ASC
         `,
         [babak || null, babak || null]
     );
 
-    return rows;
+    // Ambil seluruh juri untuk semua pertandingan
+    if (rows.length > 0) {
+        const pertandinganIds = rows.map(
+            ({ id }) => id
+        );
 
+        const placeholders = pertandinganIds
+            .map(() => "?")
+            .join(",");
+
+        const [juriRows] = await pool.query(
+            `
+            SELECT
+                pj.pertandingan_id,
+                u.id,
+                u.full_name
+            FROM pertandingan_juri pj
+            INNER JOIN users u
+                ON u.id = pj.user_id
+            WHERE pj.pertandingan_id IN (${placeholders})
+            ORDER BY pj.pertandingan_id ASC, u.id ASC
+            `,
+            pertandinganIds
+        );
+
+        const juriMap = new Map();
+
+        for (const juri of juriRows) {
+            if (!juriMap.has(juri.pertandingan_id)) {
+                juriMap.set(juri.pertandingan_id, []);
+            }
+
+            juriMap.get(juri.pertandingan_id).push({
+                id: juri.id,
+                full_name: juri.full_name,
+            });
+        }
+
+        for (const pertandingan of rows) {
+            pertandingan.juri =
+                juriMap.get(pertandingan.id) || [];
+        }
+    }
+
+    return rows;
 };
 
 const getRiwayatPertandingan = async (babak) => {
@@ -497,8 +538,8 @@ const pairPesertaByWeight = (peserta) => {
         name: item.name,
         weight:
             item.weight !== null &&
-            item.weight !== undefined &&
-            !Number.isNaN(Number(item.weight))
+                item.weight !== undefined &&
+                !Number.isNaN(Number(item.weight))
                 ? Number(item.weight)
                 : Infinity
     }));
@@ -573,7 +614,7 @@ const pairPesertaByWeight = (peserta) => {
             peserta2_weight: pesertaB.weight,
             selisih_bb:
                 pesertaA.weight === Infinity ||
-                pesertaB.weight === Infinity
+                    pesertaB.weight === Infinity
                     ? null
                     : Math.abs(
                         pesertaA.weight -
