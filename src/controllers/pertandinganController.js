@@ -3,513 +3,176 @@ const scoreboardModel = require("../models/scoreboardModel");
 
 const getPertandingan = async (req, res) => {
     try {
-
-        const { babak } = req.query;
-
-        const data = await pertandinganModel.getAllPertandingan(
-            babak
-        );
-
-        res.status(200).json({
-            success: true,
-            data,
-        });
-
+        const data = await pertandinganModel.getAllPertandingan(req.query.babak);
+        return res.status(200).json({ success: true, data });
     } catch (err) {
-
         console.error(err);
-
-        res.status(500).json({
-            success: false,
-            message: "Gagal mengambil data pertandingan.",
-        });
-
+        return res.status(500).json({ success: false, message: "Gagal mengambil data pertandingan." });
     }
 };
 
-/**
- * Riwayat Pertandingan (yang sudah selesai)
- * NOTE: butuh pertandinganModel.getRiwayatPertandingan()
- * di model — lihat catatan di bawah kode ini.
- */
 const getRiwayatPertandingan = async (req, res) => {
     try {
-
-        const { babak } = req.query;
-
-        const data = await pertandinganModel.getRiwayatPertandingan(
-            babak
-        );
-
-        res.status(200).json({
-            success: true,
-            data,
-        });
-
+        const data = await pertandinganModel.getRiwayatPertandingan(req.query.babak);
+        return res.status(200).json({ success: true, data });
     } catch (err) {
-
         console.error(err);
-
-        res.status(500).json({
-            success: false,
-            message: "Gagal mengambil riwayat pertandingan.",
-        });
-
+        return res.status(500).json({ success: false, message: "Gagal mengambil riwayat pertandingan." });
     }
 };
 
 const getPertandinganById = async (req, res) => {
-
     try {
-
-        const { id } = req.params;
-
-        const pertandingan =
-            await pertandinganModel.getPertandinganById(id);
-
-        if (!pertandingan) {
-
-            return res.status(404).json({
-                success: false,
-                message: "Pertandingan tidak ditemukan.",
-            });
-
-        }
-
-        res.status(200).json({
-            success: true,
-            data: pertandingan,
-        });
-
+        const data = await pertandinganModel.getPertandinganById(req.params.id);
+        if (!data) return res.status(404).json({ success: false, message: "Pertandingan tidak ditemukan." });
+        return res.status(200).json({ success: true, data });
     } catch (err) {
-
         console.error(err);
-
-        res.status(500).json({
-            success: false,
-            message: "Gagal mengambil detail pertandingan.",
-        });
-
+        return res.status(500).json({ success: false, message: "Gagal mengambil detail pertandingan." });
     }
-
 };
 
 const createPertandingan = async (req, res) => {
-
     try {
-
-        const {
-            babak,
-            durasi_menit,
-            peserta1_id,
-            peserta2_id,
-        } = req.body;
-
-        if (
-            !babak ||
-            !durasi_menit ||
-            !peserta1_id ||
-            !peserta2_id
-        ) {
-
+        const { babak, durasi_ronde_menit, peserta1_id, peserta2_id, juri_utama, juri_cadangan } = req.body;
+        if (!babak || durasi_ronde_menit == null || !peserta1_id || !peserta2_id || !Array.isArray(juri_utama) || !Array.isArray(juri_cadangan)) {
+            return res.status(400).json({ success: false, message: "Babak, durasi ronde, peserta dan 3+3 juri wajib diisi." });
+        }
+        if (juri_utama.length !== 3) {
             return res.status(400).json({
                 success: false,
-                message: "Data pertandingan belum lengkap.",
+                message:
+                    "Harus ada tepat 3 juri utama.",
             });
-
         }
 
-        if (peserta1_id === peserta2_id) {
-
+        if (juri_cadangan.length !== 3) {
             return res.status(400).json({
                 success: false,
-                message: "Peserta tidak boleh sama.",
+                message:
+                    "Harus ada tepat 3 juri cadangan.",
             });
-
         }
-
-        const id =
-            await pertandinganModel.createPertandingan(
-                babak,
-                durasi_menit,
-                peserta1_id,
-                peserta2_id
-            );
-
-        const pertandingan =
-            await pertandinganModel.getPertandinganById(id);
-
-        res.status(201).json({
-            success: true,
-            message: "Pertandingan berhasil dibuat.",
-            data: pertandingan,
-        });
-
+        const id = await pertandinganModel.createPertandingan(
+            babak, durasi_ronde_menit, peserta1_id, peserta2_id, juri_utama, juri_cadangan
+        );
+        const data = await pertandinganModel.getPertandinganById(id);
+        return res.status(201).json({ success: true, message: "Pertandingan berhasil dibuat.", data });
     } catch (err) {
-
         console.error(err);
-
-        res.status(500).json({
-            success: false,
-            message: "Gagal membuat pertandingan.",
-        });
-
+        return res.status(400).json({ success: false, message: err.message });
     }
-
 };
 
 const updatePertandingan = async (req, res) => {
-
     try {
-
-        const { id } = req.params;
-
-        const pertandingan =
-            await pertandinganModel.getPertandinganById(id);
-
-        if (!pertandingan) {
-
-            return res.status(404).json({
-                success: false,
-                message: "Pertandingan tidak ditemukan.",
-            });
-
-        }
-
-        await pertandinganModel.updatePertandingan(
-            id,
-            req.body
-        );
-
-        const updated =
-            await pertandinganModel.getPertandinganById(id);
-
-        res.status(200).json({
-            success: true,
-            message: "Pertandingan berhasil diperbarui.",
-            data: updated,
-        });
-
+        await pertandinganModel.updatePertandingan(req.params.id, req.body);
+        const data = await pertandinganModel.getPertandinganById(req.params.id);
+        return res.status(200).json({ success: true, message: "Pertandingan berhasil diperbarui.", data });
     } catch (err) {
-
         console.error(err);
-
-        res.status(500).json({
-            success: false,
-            message: "Gagal memperbarui pertandingan.",
-        });
-
+        return res.status(400).json({ success: false, message: err.message });
     }
-
 };
 
 const deletePertandingan = async (req, res) => {
-
     try {
-
-        const { id } = req.params;
-
-        const deleted =
-            await pertandinganModel.deletePertandingan(id);
-
-        if (!deleted) {
-
-            return res.status(404).json({
-                success: false,
-                message: "Pertandingan tidak ditemukan.",
-            });
-
-        }
-
-        res.status(200).json({
-            success: true,
-            message: "Pertandingan berhasil dihapus.",
-        });
-
+        const deleted = await pertandinganModel.deletePertandingan(req.params.id);
+        if (!deleted) return res.status(404).json({ success: false, message: "Pertandingan tidak ditemukan." });
+        return res.status(200).json({ success: true, message: "Pertandingan berhasil dihapus." });
     } catch (err) {
-
         console.error(err);
-
-        res.status(500).json({
-            success: false,
-            message: "Gagal menghapus pertandingan.",
-        });
-
+        return res.status(500).json({ success: false, message: "Gagal menghapus pertandingan." });
     }
-
 };
 
 const startPertandingan = async (req, res) => {
-
     try {
-
-        const { id } = req.params;
-
-        const pertandingan =
-            await pertandinganModel.getPertandinganById(id);
-
-        if (!pertandingan) {
-
-            return res.status(404).json({
-                success: false,
-                message: "Pertandingan tidak ditemukan.",
-            });
-
-        }
-
-        await pertandinganModel.startPertandingan(id);
-
-        const data =
-            await pertandinganModel.getPertandinganById(id);
-
-        res.status(200).json({
-            success: true,
-            message: "Pertandingan dimulai.",
-            data,
-        });
-
+        await pertandinganModel.startPertandingan(req.params.id);
+        return res.status(200).json({ success: true, message: "Ronde 1 dimulai.", data: await pertandinganModel.getPertandinganById(req.params.id) });
     } catch (err) {
-
         console.error(err);
-
-        res.status(400).json({
-            success: false,
-            message: err.message,
-        });
-
+        return res.status(400).json({ success: false, message: err.message });
     }
-
 };
 
 const pausePertandingan = async (req, res) => {
-
     try {
-
-        const { id } = req.params;
-        const { sisa_detik } = req.body;
-
-        if (sisa_detik == null) {
-            return res.status(400).json({
-                success: false,
-                message: "sisa_detik wajib dikirim."
-            });
-        }
-
-        const pertandingan =
-            await pertandinganModel.getPertandinganById(id);
-
-        if (!pertandingan) {
-            return res.status(404).json({
-                success: false,
-                message: "Pertandingan tidak ditemukan."
-            });
-        }
-
-        await pertandinganModel.pausePertandingan(
-            id,
-            sisa_detik
-        );
-
-        const data =
-            await pertandinganModel.getPertandinganById(id);
-
-        res.status(200).json({
-            success: true,
-            message: "Pertandingan dipause.",
-            data
-        });
-
+        if (req.body.sisa_detik == null) return res.status(400).json({ success: false, message: "sisa_detik wajib dikirim." });
+        await pertandinganModel.pausePertandingan(req.params.id, Number(req.body.sisa_detik));
+        return res.status(200).json({ success: true, message: "Timer pertandingan dipause.", data: await pertandinganModel.getPertandinganById(req.params.id) });
     } catch (err) {
-
-        res.status(400).json({
-            success: false,
-            message: err.message
-        });
-
+        console.error(err);
+        return res.status(400).json({ success: false, message: err.message });
     }
-
 };
 
 const resumePertandingan = async (req, res) => {
-
     try {
-
-        const { id } = req.params;
-
-        const pertandingan =
-            await pertandinganModel.getPertandinganById(id);
-
-        if (!pertandingan) {
-            return res.status(404).json({
-                success: false,
-                message: "Pertandingan tidak ditemukan."
-            });
-        }
-
-        await pertandinganModel.resumePertandingan(id);
-
-        const data =
-            await pertandinganModel.getPertandinganById(id);
-
-        res.status(200).json({
-            success: true,
-            message: "Pertandingan dilanjutkan.",
-            data
-        });
-
+        await pertandinganModel.resumePertandingan(req.params.id);
+        return res.status(200).json({ success: true, message: "Ronde dilanjutkan.", data: await pertandinganModel.getPertandinganById(req.params.id) });
     } catch (err) {
-
-        res.status(400).json({
-            success: false,
-            message: err.message
-        });
-
+        console.error(err);
+        return res.status(400).json({ success: false, message: err.message });
     }
+};
 
+const finishRonde = async (req, res) => {
+    try {
+        const { alasan, sisa_detik, winner_id } = req.body;
+        const data = await pertandinganModel.finishRonde(req.params.id, alasan, sisa_detik, winner_id);
+        const message = data.status === "selesai"
+            ? "Ronde dihentikan dan pertandingan diselesaikan."
+            : `Ronde ${Number(data.ronde_aktif) - 1} selesai. Ronde ${data.ronde_aktif} dimulai.`;
+        return res.status(200).json({ success: true, message, data });
+    } catch (err) {
+        console.error(err);
+        return res.status(400).json({ success: false, message: err.message });
+    }
 };
 
 const finishPertandingan = async (req, res) => {
-
     try {
-
-        const { id } = req.params;
-
-        const pertandingan =
-            await pertandinganModel.getPertandinganById(id);
-
-        if (!pertandingan) {
-
-            return res.status(404).json({
-                success: false,
-                message: "Pertandingan tidak ditemukan.",
-            });
-
-        }
-
-        const result =
-            await pertandinganModel.finishPertandingan(id);
-
-        res.status(200).json({
-            success: true,
-            message: "Pertandingan selesai.",
-            data: result,
-        });
-
+        const result = await pertandinganModel.finishPertandingan(req.params.id, req.body.alasan || "waktu_habis");
+        return res.status(200).json({ success: true, message: "Pertandingan selesai.", data: result });
     } catch (err) {
-
         console.error(err);
-
-        res.status(400).json({
-            success: false,
-            message: err.message,
-        });
-
+        return res.status(400).json({ success: false, message: err.message });
     }
+};
 
+const replaceJudge = async (req, res) => {
+    try {
+        const { juri_utama_id, juri_cadangan_id } = req.body;
+        if (!juri_utama_id || !juri_cadangan_id) return res.status(400).json({ success: false, message: "Juri utama dan juri cadangan wajib diisi." });
+        await pertandinganModel.replaceJudge(req.params.id, juri_utama_id, juri_cadangan_id);
+        return res.status(200).json({ success: true, message: "Juri utama berhasil digantikan juri cadangan.", data: await pertandinganModel.getPertandinganById(req.params.id) });
+    } catch (err) {
+        console.error(err);
+        return res.status(400).json({ success: false, message: err.message });
+    }
 };
 
 const getScoreboard = async (req, res) => {
-
     try {
-
-        const { id } = req.params;
-
-        const scoreboard =
-            await scoreboardModel.getScoreboard(id);
-
-        if (!scoreboard) {
-
-            return res.status(404).json({
-                success: false,
-                message: "Pertandingan tidak ditemukan.",
-            });
-
-        }
-
-        res.status(200).json({
-            success: true,
-            data: scoreboard,
-        });
-
+        const data = await scoreboardModel.getScoreboard(req.params.id);
+        if (!data) return res.status(404).json({ success: false, message: "Pertandingan tidak ditemukan." });
+        return res.status(200).json({ success: true, data });
     } catch (err) {
-
         console.error(err);
-
-        res.status(500).json({
-            success: false,
-            message: "Gagal mengambil scoreboard.",
-        });
-
+        return res.status(500).json({ success: false, message: "Gagal mengambil scoreboard." });
     }
-
 };
 
 const updateTimer = async (req, res) => {
-
     try {
-
-        const { id } = req.params;
-        const { sisa_detik } = req.body;
-
-        if (
-            sisa_detik === undefined ||
-            sisa_detik === null
-        ) {
-
-            return res.status(400).json({
-                success: false,
-                message: "sisa_detik wajib diisi."
-            });
-
-        }
-
-        const pertandingan =
-            await pertandinganModel.getPertandinganById(id);
-
-        if (!pertandingan) {
-
-            return res.status(404).json({
-                success: false,
-                message: "Pertandingan tidak ditemukan."
-            });
-
-        }
-
-        const success =
-            await pertandinganModel.updateTimer(
-                id,
-                Number(sisa_detik)
-            );
-
-        if (!success) {
-
-            return res.status(400).json({
-                success: false,
-                message: "Pertandingan belum berlangsung."
-            });
-
-        }
-
-        const data =
-            await pertandinganModel.getPertandinganById(id);
-
-        res.status(200).json({
-            success: true,
-            message: "Timer berhasil diperbarui.",
-            data
-        });
-
+        if (req.body.sisa_detik == null) return res.status(400).json({ success: false, message: "sisa_detik wajib diisi." });
+        await pertandinganModel.updateTimer(req.params.id, Number(req.body.sisa_detik));
+        return res.status(200).json({ success: true, message: "Timer berhasil diperbarui.", data: await pertandinganModel.getPertandinganById(req.params.id) });
     } catch (err) {
-
         console.error(err);
-
-        res.status(500).json({
-            success: false,
-            message: err.message
-        });
-
+        return res.status(400).json({ success: false, message: err.message });
     }
-
 };
 
 module.exports = {
@@ -522,7 +185,9 @@ module.exports = {
     startPertandingan,
     pausePertandingan,
     resumePertandingan,
+    finishRonde,
     finishPertandingan,
+    replaceJudge,
     getScoreboard,
-    updateTimer
+    updateTimer,
 };

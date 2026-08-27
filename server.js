@@ -11,6 +11,7 @@ const errorHandler = require("./src/middleware/errorHandler");
 const pertandinganRoute = require("./src/routes/pertandinganRoute.js");
 const penilaianRoute = require("./src/routes/penilaianRoutes.js");
 const profileRoutes = require("./src/routes/profileRoutes.js");
+const exportRoutes = require("./src/routes/exportRoutes.js");
 
 require("dotenv").config();
 
@@ -37,6 +38,7 @@ app.use("/api/peserta", pesertaRoutes);
 app.use("/api/pertandingan", pertandinganRoute);
 app.use("/api/penilaian", penilaianRoute);
 app.use("/api/profile", profileRoutes);
+app.use("/api/export", exportRoutes);
 
 app.use(errorHandler);
 
