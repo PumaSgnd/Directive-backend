@@ -1,5 +1,8 @@
 const PDFDocument = require("pdfkit");
 
+// =============================================================
+// LABEL BABAK
+// =============================================================
 const BABAK_LABEL = {
     penyisihan: "Penyisihan",
     enam_belas_besar: "16 Besar",
@@ -8,6 +11,9 @@ const BABAK_LABEL = {
     final: "Final",
 };
 
+// =============================================================
+// LABEL STATUS
+// =============================================================
 const STATUS_LABEL = {
     belum_mulai: "Belum Mulai",
     berlangsung: "Berlangsung",
@@ -15,18 +21,31 @@ const STATUS_LABEL = {
     selesai: "Selesai",
 };
 
+// =============================================================
+// FORMAT BABAK
+// =============================================================
 const formatBabak = (value) =>
     BABAK_LABEL[value] ||
     String(value || "-")
         .replace(/_/g, " ")
-        .replace(/\b\w/g, (char) => char.toUpperCase());
+        .replace(/\b\w/g, (char) =>
+            char.toUpperCase()
+        );
 
+// =============================================================
+// FORMAT STATUS
+// =============================================================
 const formatStatus = (value) =>
     STATUS_LABEL[value] ||
     String(value || "-")
         .replace(/_/g, " ")
-        .replace(/\b\w/g, (char) => char.toUpperCase());
+        .replace(/\b\w/g, (char) =>
+            char.toUpperCase()
+        );
 
+// =============================================================
+// FORMAT DATE
+// =============================================================
 const formatDate = (value) => {
     if (!value) return "-";
 
@@ -42,34 +61,58 @@ const formatDate = (value) => {
     });
 };
 
+// =============================================================
+// SANITIZE FILE NAME
+// =============================================================
 const sanitizeFileName = (value) =>
     String(value || "export")
-        .replace(/[<>:"/\\|?*\x00-\x1F]/g, "-")
+        .replace(
+            /[<>:"/\\|?*\x00-\x1F]/g,
+            "-"
+        )
         .replace(/\s+/g, "_");
 
-const drawHeader = (doc, title, subtitle) => {
+// =============================================================
+// HEADER PDF
+// =============================================================
+const drawHeader = (
+    doc,
+    title,
+    subtitle
+) => {
     doc
         .font("Helvetica-Bold")
-        .fontSize(18)
+        .fontSize(16)
         .text(title, {
             align: "center",
         });
 
     doc
-        .moveDown(0.3)
+        .moveDown(0.25)
         .font("Helvetica")
-        .fontSize(9)
+        .fontSize(8)
         .text(subtitle, {
             align: "center",
         });
 
-    doc.moveDown(1);
+    doc.moveDown(0.8);
 };
 
-const ensureSpace = (doc, height) => {
-    const bottom = doc.page.height - doc.page.margins.bottom;
+// =============================================================
+// CEK SPACE
+// =============================================================
+const ensureSpace = (
+    doc,
+    height
+) => {
+    const bottom =
+        doc.page.height -
+        doc.page.margins.bottom;
 
-    if (doc.y + height > bottom) {
+    if (
+        doc.y + height >
+        bottom
+    ) {
         doc.addPage();
         return true;
     }
@@ -77,61 +120,165 @@ const ensureSpace = (doc, height) => {
     return false;
 };
 
-const drawLine = (doc, y, x1, x2) => {
+// =============================================================
+// DRAW CELL
+// =============================================================
+const drawCell = (
+    doc,
+    x,
+    y,
+    width,
+    height,
+    text = "",
+    options = {}
+) => {
+    const {
+        font = "Helvetica",
+        fontSize = 7,
+        align = "center",
+        valign = "center",
+        padding = 3,
+        ellipsis = false,
+    } = options;
+
     doc
-        .moveTo(x1, y)
-        .lineTo(x2, y)
+        .font(font)
+        .fontSize(fontSize);
+
+    doc
+        .rect(
+            x,
+            y,
+            width,
+            height
+        )
         .stroke();
+
+    if (
+        text === null ||
+        text === undefined ||
+        text === ""
+    ) {
+        return;
+    }
+
+    let textY = y + padding;
+
+    if (valign === "center") {
+        textY =
+            y +
+            (height -
+                fontSize) /
+            2 -
+            1;
+    }
+
+    doc.text(
+        String(text),
+        x + padding,
+        textY,
+        {
+            width:
+                width -
+                padding * 2,
+            align,
+            ellipsis,
+            lineBreak: false,
+        }
+    );
 };
 
-const drawMatch = (doc, match, index) => {
-    const juriList = match.scorePerJuri || [];
+// =============================================================
+// DRAW MATCH
+// =============================================================
+const drawMatch = (
+    doc,
+    match,
+    index
+) => {
+    const left =
+        doc.page.margins.left;
 
-    // =========================================================
-    // 1 PERTANDINGAN = 1 TABEL
-    // =========================================================
-
-    const left = doc.page.margins.left;
-    const width =
+    const availableWidth =
         doc.page.width -
         doc.page.margins.left -
         doc.page.margins.right;
 
-    // Tinggi yang dibutuhkan
-    const titleHeight = 35;
-    const headerHeight = 22;
-    const subHeaderHeight = 22;
-    const rowHeight = 21;
+    const juriList =
+        (
+            match.scorePerJuri ||
+            []
+        ).slice(0, 3);
+
+    // =========================================================
+    // KONFIGURASI TABEL
+    // =========================================================
+
+    const titleHeight = 30;
+
+    const header1Height = 20;
+    const header2Height = 19;
+    const rowHeight = 20;
+
+    const tableHeaderHeight =
+        header1Height +
+        header2Height;
+
+    const totalRows =
+        Math.max(
+            juriList.length,
+            3
+        );
+
+    const tableHeight =
+        tableHeaderHeight +
+        totalRows *
+        rowHeight;
 
     const estimatedHeight =
         titleHeight +
-        headerHeight +
-        subHeaderHeight +
-        (juriList.length * rowHeight) +
+        tableHeight +
         35;
 
-    ensureSpace(doc, estimatedHeight);
+    ensureSpace(
+        doc,
+        estimatedHeight
+    );
 
     // =========================================================
-    // DATA PERTANDINGAN
+    // DATA PESERTA
     // =========================================================
 
-    const peserta1 = match.peserta1 || {};
-    const peserta2 = match.peserta2 || {};
+    const peserta1 =
+        match.peserta1 || {};
 
-    const peserta1Nama = peserta1.nama || "-";
-    const peserta2Nama = peserta2.nama || "-";
+    const peserta2 =
+        match.peserta2 || null;
 
-    const peserta1Regional = peserta1.regional || "-";
-    const peserta2Regional = peserta2.regional || "-";
+    const peserta1Nama =
+        peserta1.nama || "-";
+
+    const peserta2Nama =
+        peserta2?.nama || "-";
+
+    const peserta1Regional =
+        peserta1.regional || "-";
+
+    const peserta2Regional =
+        peserta2?.regional || "-";
 
     const peserta1Weight =
-        peserta1.berat !== undefined && peserta1.berat !== null
+        peserta1.berat !==
+            undefined &&
+        peserta1.berat !== null
             ? `${peserta1.berat} Kg`
             : "-";
 
     const peserta2Weight =
-        peserta2.berat !== undefined && peserta2.berat !== null
+        peserta2 &&
+        peserta2.berat !==
+            undefined &&
+        peserta2.berat !== null
             ? `${peserta2.berat} Kg`
             : "-";
 
@@ -141,276 +288,355 @@ const drawMatch = (doc, match, index) => {
 
     doc
         .font("Helvetica-Bold")
-        .fontSize(11)
+        .fontSize(10)
         .text(
-            `Pertandingan #${match.id} — ${formatBabak(match.babak)}`,
+            `Pertandingan #${match.id} — ${formatBabak(
+                match.babak
+            )}`,
             left
         );
 
     doc
         .font("Helvetica")
-        .fontSize(8)
+        .fontSize(7)
         .text(
-            `Status: ${formatStatus(match.status)}    |    Selesai: ${formatDate(
+            `Status: ${formatStatus(
+                match.status
+            )}  |  Selesai: ${formatDate(
                 match.waktu_selesai
             )}`,
             left
         );
 
-    doc.moveDown(0.5);
+    doc.moveDown(0.4);
 
     // =========================================================
-    // STRUKTUR KOLOM
+    // LEBAR KOLOM
     //
-    // Peserta       16%
-    // Regional      18%
-    // Weight        11%
-    // Score Juri    42%
-    // Selisih        7%
-    // Total          6%
-    //
-    // Score Juri kemudian dibagi menjadi:
-    // Juri           45%
-    // Score P1       27.5%
-    // Score P2       27.5%
+    // Peserta
+    // Regional
+    // Weight
+    // Juri
+    // R1 P1/P2
+    // R2 P1/P2
+    // R3 P1/P2
+    // Selisih
+    // Total
     // =========================================================
 
-    const pesertaWidth = width * 0.14;
-    const regionalWidth = width * 0.18;
-    const weightWidth = width * 0.11;
+    const pesertaWidth =
+        availableWidth * 0.105;
 
-    const scorePerJuriWidth = width * 0.42;
+    const regionalWidth =
+        availableWidth * 0.145;
 
-    const selisihWidth = width * 0.075;
-    const totalWidth = width * 0.075;
+    const weightWidth =
+        availableWidth * 0.075;
 
-    const juriWidth = scorePerJuriWidth * 0.40;
-    const scoreP1Width = scorePerJuriWidth * 0.30;
-    const scoreP2Width = scorePerJuriWidth * 0.30;
+    const juriWidth =
+        availableWidth * 0.105;
 
-    // Posisi X
-    const xPeserta = left;
+    const roundWidth =
+        availableWidth * 0.31;
+
+    const scoreWidth =
+        roundWidth / 6;
+
+    const selisihWidth =
+        availableWidth * 0.085;
+
+    const totalWidth =
+        availableWidth -
+        pesertaWidth -
+        regionalWidth -
+        weightWidth -
+        juriWidth -
+        roundWidth -
+        selisihWidth;
+
+    // =========================================================
+    // X POSITION
+    // =========================================================
+
+    const xPeserta =
+        left;
 
     const xRegional =
-        xPeserta + pesertaWidth;
+        xPeserta +
+        pesertaWidth;
 
     const xWeight =
-        xRegional + regionalWidth;
+        xRegional +
+        regionalWidth;
 
-    const xScoreJuri =
-        xWeight + weightWidth;
+    const xJuri =
+        xWeight +
+        weightWidth;
+
+    const xRound1 =
+        xJuri +
+        juriWidth;
+
+    const xRound2 =
+        xRound1 +
+        scoreWidth * 2;
+
+    const xRound3 =
+        xRound2 +
+        scoreWidth * 2;
 
     const xSelisih =
-        xScoreJuri + scorePerJuriWidth;
+        xRound3 +
+        scoreWidth * 2;
 
     const xTotal =
-        xSelisih + selisihWidth;
+        xSelisih +
+        selisihWidth;
 
     // =========================================================
-    // HEADER BARIS 1
-    //
-    // Peserta | Regional | Weight | SCORE PER JURI | Selisih | Total
-    //                               └── colspan 3 ──┘
+    // TABLE Y
     // =========================================================
 
-    let tableY = doc.y;
+    const tableY =
+        doc.y;
 
-    doc
-        .font("Helvetica-Bold")
-        .fontSize(7);
+    // =========================================================
+    // HEADER PESERTA
+    // =========================================================
 
-    // Peserta
-    doc
-        .rect(
-            xPeserta,
-            tableY,
-            pesertaWidth,
-            headerHeight + subHeaderHeight
-        )
-        .stroke();
-
-    doc.text(
-        "Peserta",
+    drawCell(
+        doc,
         xPeserta,
-        tableY + 14,
+        tableY,
+        pesertaWidth,
+        tableHeaderHeight,
+        "Peserta",
         {
-            width: pesertaWidth,
-            align: "center",
+            font: "Helvetica-Bold",
+            fontSize: 7,
         }
     );
 
-    // Regional
-    doc
-        .rect(
-            xRegional,
-            tableY,
-            regionalWidth,
-            headerHeight + subHeaderHeight
-        )
-        .stroke();
+    // =========================================================
+    // HEADER REGIONAL
+    // =========================================================
 
-    doc.text(
-        "Regional",
+    drawCell(
+        doc,
         xRegional,
-        tableY + 14,
+        tableY,
+        regionalWidth,
+        tableHeaderHeight,
+        "Regional",
         {
-            width: regionalWidth,
-            align: "center",
+            font: "Helvetica-Bold",
+            fontSize: 7,
         }
     );
 
-    // Weight
-    doc
-        .rect(
-            xWeight,
-            tableY,
-            weightWidth,
-            headerHeight + subHeaderHeight
-        )
-        .stroke();
+    // =========================================================
+    // HEADER WEIGHT
+    // =========================================================
 
-    doc.text(
-        "Weight",
+    drawCell(
+        doc,
         xWeight,
-        tableY + 14,
+        tableY,
+        weightWidth,
+        tableHeaderHeight,
+        "Weight",
         {
-            width: weightWidth,
-            align: "center",
-        }
-    );
-
-    // SCORE PER JURI - HEADER GABUNGAN
-    doc
-        .rect(
-            xScoreJuri,
-            tableY,
-            scorePerJuriWidth,
-            headerHeight
-        )
-        .stroke();
-
-    doc.text(
-        "SCORE PER JURI",
-        xScoreJuri,
-        tableY + 5,
-        {
-            width: scorePerJuriWidth,
-            align: "center",
-        }
-    );
-
-    // Selisih
-    doc
-        .rect(
-            xSelisih,
-            tableY,
-            selisihWidth,
-            headerHeight + subHeaderHeight
-        )
-        .stroke();
-
-    doc.text(
-        "Selisih",
-        xSelisih,
-        tableY + 14,
-        {
-            width: selisihWidth,
-            align: "center",
-        }
-    );
-
-    // Total
-    doc
-        .rect(
-            xTotal,
-            tableY,
-            totalWidth,
-            headerHeight + subHeaderHeight
-        )
-        .stroke();
-
-    doc.text(
-        "Total",
-        xTotal,
-        tableY + 14,
-        {
-            width: totalWidth,
-            align: "center",
+            font: "Helvetica-Bold",
+            fontSize: 7,
         }
     );
 
     // =========================================================
-    // HEADER BARIS 2
-    //
-    // Di bawah SCORE PER JURI:
-    // Juri | Score Peserta 1 | Score Peserta 2
+    // HEADER JURI
     // =========================================================
 
-    const subHeaderY = tableY + headerHeight;
-
-    // Juri
-    doc
-        .rect(
-            xScoreJuri,
-            subHeaderY,
-            juriWidth,
-            subHeaderHeight
-        )
-        .stroke();
-
-    doc.text(
+    drawCell(
+        doc,
+        xJuri,
+        tableY,
+        juriWidth,
+        tableHeaderHeight,
         "Juri",
-        xScoreJuri,
-        subHeaderY + 6,
         {
-            width: juriWidth,
-            align: "center",
+            font: "Helvetica-Bold",
+            fontSize: 7,
         }
     );
 
-    // Score Peserta 1
-    const xScoreP1 =
-        xScoreJuri + juriWidth;
+    // =========================================================
+    // HEADER ROUND 1
+    // =========================================================
 
-    doc
-        .rect(
-            xScoreP1,
-            subHeaderY,
-            scoreP1Width,
-            subHeaderHeight
-        )
-        .stroke();
-
-    doc.text(
-        "Score Peserta 1",
-        xScoreP1,
-        subHeaderY + 6,
+    drawCell(
+        doc,
+        xRound1,
+        tableY,
+        scoreWidth * 2,
+        header1Height,
+        "Round 1",
         {
-            width: scoreP1Width,
-            align: "center",
+            font: "Helvetica-Bold",
+            fontSize: 7,
         }
     );
 
-    // Score Peserta 2
-    const xScoreP2 =
-        xScoreP1 + scoreP1Width;
-
-    doc
-        .rect(
-            xScoreP2,
-            subHeaderY,
-            scoreP2Width,
-            subHeaderHeight
-        )
-        .stroke();
-
-    doc.text(
-        "Score Peserta 2",
-        xScoreP2,
-        subHeaderY + 6,
+    drawCell(
+        doc,
+        xRound1,
+        tableY +
+        header1Height,
+        scoreWidth,
+        header2Height,
+        "Peserta 1",
         {
-            width: scoreP2Width,
-            align: "center",
+            font: "Helvetica-Bold",
+            fontSize: 6.5,
+        }
+    );
+
+    drawCell(
+        doc,
+        xRound1 +
+        scoreWidth,
+        tableY +
+        header1Height,
+        scoreWidth,
+        header2Height,
+        "Peserta 2",
+        {
+            font: "Helvetica-Bold",
+            fontSize: 6.5,
+        }
+    );
+
+    // =========================================================
+    // HEADER ROUND 2
+    // =========================================================
+
+    drawCell(
+        doc,
+        xRound2,
+        tableY,
+        scoreWidth * 2,
+        header1Height,
+        "Round 2",
+        {
+            font: "Helvetica-Bold",
+            fontSize: 7,
+        }
+    );
+
+    drawCell(
+        doc,
+        xRound2,
+        tableY +
+        header1Height,
+        scoreWidth,
+        header2Height,
+        "Peserta 1",
+        {
+            font: "Helvetica-Bold",
+            fontSize: 6.5,
+        }
+    );
+
+    drawCell(
+        doc,
+        xRound2 +
+        scoreWidth,
+        tableY +
+        header1Height,
+        scoreWidth,
+        header2Height,
+        "Peserta 2",
+        {
+            font: "Helvetica-Bold",
+            fontSize: 6.5,
+        }
+    );
+
+    // =========================================================
+    // HEADER ROUND 3
+    // =========================================================
+
+    drawCell(
+        doc,
+        xRound3,
+        tableY,
+        scoreWidth * 2,
+        header1Height,
+        "Round 3",
+        {
+            font: "Helvetica-Bold",
+            fontSize: 7,
+        }
+    );
+
+    drawCell(
+        doc,
+        xRound3,
+        tableY +
+        header1Height,
+        scoreWidth,
+        header2Height,
+        "Peserta 1",
+        {
+            font: "Helvetica-Bold",
+            fontSize: 6.5,
+        }
+    );
+
+    drawCell(
+        doc,
+        xRound3 +
+        scoreWidth,
+        tableY +
+        header1Height,
+        scoreWidth,
+        header2Height,
+        "Peserta 2",
+        {
+            font: "Helvetica-Bold",
+            fontSize: 6.5,
+        }
+    );
+
+    // =========================================================
+    // HEADER SELISIH
+    // =========================================================
+
+    drawCell(
+        doc,
+        xSelisih,
+        tableY,
+        selisihWidth,
+        tableHeaderHeight,
+        "Selisih",
+        {
+            font: "Helvetica-Bold",
+            fontSize: 7,
+        }
+    );
+
+    // =========================================================
+    // HEADER TOTAL
+    // =========================================================
+
+    drawCell(
+        doc,
+        xTotal,
+        tableY,
+        totalWidth,
+        tableHeaderHeight,
+        "Total",
+        {
+            font: "Helvetica-Bold",
+            fontSize: 7,
         }
     );
 
@@ -418,625 +644,878 @@ const drawMatch = (doc, match, index) => {
     // DATA JURI
     // =========================================================
 
-    tableY =
-        subHeaderY + subHeaderHeight;
+    let currentY =
+        tableY +
+        tableHeaderHeight;
 
-    doc
-        .font("Helvetica")
-        .fontSize(7);
+    for (
+        let index = 0;
+        index < totalRows;
+        index++
+    ) {
+        const row =
+            juriList[index];
 
-    juriList.forEach((row, juriIndex) => {
-        const score1 =
-            Number(row.peserta1_score || 0);
+        // =====================================================
+        // PESERTA
+        //
+        // Baris 1 = Peserta 1
+        // Baris 2 = Peserta 2
+        // Baris 3 = kosong
+        // =====================================================
 
-        const score2 =
-            Number(row.peserta2_score || 0);
-
-        // Selisih
-        const selisih =
-            score1 - score2;
-
-        // Total
-        // Mengikuti data total pertandingan.
-        // Jika belum ada total, gunakan 0.
-        const total =
-            Number(
-                juriIndex === 0
-                    ? peserta1.total || 0
-                    : 0
-            );
-
-        // -----------------------------------------------------
-        // Peserta
-        // -----------------------------------------------------
-
-        doc
-            .rect(
-                xPeserta,
-                tableY,
-                pesertaWidth,
-                rowHeight
-            )
-            .stroke();
-
-        // Peserta 1 hanya di baris pertama
-        // Peserta 2 di baris kedua
-        // Baris ketiga dikosongkan.
         let namaPeserta = "";
-
-        if (juriIndex === 0) {
-            namaPeserta = peserta1Nama;
-        } else if (juriIndex === 1) {
-            namaPeserta = peserta2Nama;
-        }
-
-        if (namaPeserta) {
-            doc.text(
-                namaPeserta,
-                xPeserta + 4,
-                tableY + 6,
-                {
-                    width: pesertaWidth - 8,
-                    align: "left",
-                    ellipsis: true,
-                }
-            );
-        }
-
-        // -----------------------------------------------------
-        // Regional
-        // -----------------------------------------------------
-
-        doc
-            .rect(
-                xRegional,
-                tableY,
-                regionalWidth,
-                rowHeight
-            )
-            .stroke();
-
         let regional = "";
-
-        if (juriIndex === 0) {
-            regional = peserta1Regional;
-        } else if (juriIndex === 1) {
-            regional = peserta2Regional;
-        }
-
-        if (regional) {
-            doc.text(
-                regional,
-                xRegional + 4,
-                tableY + 6,
-                {
-                    width: regionalWidth - 8,
-                    align: "left",
-                    ellipsis: true,
-                }
-            );
-        }
-
-        // -----------------------------------------------------
-        // Weight
-        // -----------------------------------------------------
-
-        doc
-            .rect(
-                xWeight,
-                tableY,
-                weightWidth,
-                rowHeight
-            )
-            .stroke();
-
         let weight = "";
 
-        if (juriIndex === 0) {
-            weight = peserta1Weight;
-        } else if (juriIndex === 1) {
-            weight = peserta2Weight;
+        if (index === 0) {
+            namaPeserta =
+                peserta1Nama;
+
+            regional =
+                peserta1Regional;
+
+            weight =
+                peserta1Weight;
+        } else if (index === 1) {
+            namaPeserta =
+                peserta2
+                    ? peserta2Nama
+                    : "";
+
+            regional =
+                peserta2
+                    ? peserta2Regional
+                    : "";
+
+            weight =
+                peserta2
+                    ? peserta2Weight
+                    : "";
         }
 
-        if (weight) {
-            doc.text(
-                weight,
-                xWeight + 3,
-                tableY + 6,
-                {
-                    width: weightWidth - 6,
-                    align: "center",
-                    ellipsis: true,
-                }
-            );
-        }
-
-        // -----------------------------------------------------
-        // Nama Juri
-        // -----------------------------------------------------
-
-        doc
-            .rect(
-                xScoreJuri,
-                tableY,
-                juriWidth,
-                rowHeight
-            )
-            .stroke();
-
-        doc.text(
-            row.juri || "-",
-            xScoreJuri + 4,
-            tableY + 6,
+        drawCell(
+            doc,
+            xPeserta,
+            currentY,
+            pesertaWidth,
+            rowHeight,
+            namaPeserta,
             {
-                width: juriWidth - 8,
+                font: "Helvetica",
+                fontSize: 7,
                 align: "left",
                 ellipsis: true,
             }
         );
 
-        // -----------------------------------------------------
-        // Score Peserta 1
-        // -----------------------------------------------------
-
-        doc
-            .rect(
-                xScoreP1,
-                tableY,
-                scoreP1Width,
-                rowHeight
-            )
-            .stroke();
-
-        doc.text(
-            String(score1),
-            xScoreP1,
-            tableY + 6,
+        drawCell(
+            doc,
+            xRegional,
+            currentY,
+            regionalWidth,
+            rowHeight,
+            regional,
             {
-                width: scoreP1Width,
-                align: "center",
+                font: "Helvetica",
+                fontSize: 7,
+                align: "left",
+                ellipsis: true,
             }
         );
 
-        // -----------------------------------------------------
-        // Score Peserta 2
-        // -----------------------------------------------------
-
-        doc
-            .rect(
-                xScoreP2,
-                tableY,
-                scoreP2Width,
-                rowHeight
-            )
-            .stroke();
-
-        doc.text(
-            String(score2),
-            xScoreP2,
-            tableY + 6,
+        drawCell(
+            doc,
+            xWeight,
+            currentY,
+            weightWidth,
+            rowHeight,
+            weight,
             {
-                width: scoreP2Width,
+                font: "Helvetica",
+                fontSize: 7,
                 align: "center",
+                ellipsis: true,
             }
         );
 
-        // -----------------------------------------------------
-        // Selisih
-        // -----------------------------------------------------
+        // =====================================================
+        // JURI
+        // =====================================================
 
-        doc
-            .rect(
-                xSelisih,
-                tableY,
-                selisihWidth,
-                rowHeight
-            )
-            .stroke();
+        drawCell(
+            doc,
+            xJuri,
+            currentY,
+            juriWidth,
+            rowHeight,
+            row?.juri || "",
+            {
+                font: "Helvetica",
+                fontSize: 7,
+                align: "left",
+                ellipsis: true,
+            }
+        );
 
-        doc.text(
-            String(selisih),
+        // =====================================================
+        // ROUND 1
+        // =====================================================
+
+        const round1 =
+            row?.rounds?.[1] || {};
+
+        drawCell(
+            doc,
+            xRound1,
+            currentY,
+            scoreWidth,
+            rowHeight,
+            round1.peserta1 ??
+            "",
+            {
+                font: "Helvetica",
+                fontSize: 7,
+            }
+        );
+
+        drawCell(
+            doc,
+            xRound1 +
+            scoreWidth,
+            currentY,
+            scoreWidth,
+            rowHeight,
+            round1.peserta2 ??
+            "",
+            {
+                font: "Helvetica",
+                fontSize: 7,
+            }
+        );
+
+        // =====================================================
+        // ROUND 2
+        // =====================================================
+
+        const round2 =
+            row?.rounds?.[2] || {};
+
+        drawCell(
+            doc,
+            xRound2,
+            currentY,
+            scoreWidth,
+            rowHeight,
+            round2.peserta1 ??
+            "",
+            {
+                font: "Helvetica",
+                fontSize: 7,
+            }
+        );
+
+        drawCell(
+            doc,
+            xRound2 +
+            scoreWidth,
+            currentY,
+            scoreWidth,
+            rowHeight,
+            round2.peserta2 ??
+            "",
+            {
+                font: "Helvetica",
+                fontSize: 7,
+            }
+        );
+
+        // =====================================================
+        // ROUND 3
+        // =====================================================
+
+        const round3 =
+            row?.rounds?.[3] || {};
+
+        drawCell(
+            doc,
+            xRound3,
+            currentY,
+            scoreWidth,
+            rowHeight,
+            round3.peserta1 ??
+            "",
+            {
+                font: "Helvetica",
+                fontSize: 7,
+            }
+        );
+
+        drawCell(
+            doc,
+            xRound3 +
+            scoreWidth,
+            currentY,
+            scoreWidth,
+            rowHeight,
+            round3.peserta2 ??
+            "",
+            {
+                font: "Helvetica",
+                fontSize: 7,
+            }
+        );
+
+        // =====================================================
+        // SELISIH
+        //
+        // Baris 1 = selisih P1
+        // Baris 2 = selisih P2
+        // Baris 3 = kosong
+        // =====================================================
+
+        let selisih = "";
+
+        if (index === 0) {
+            selisih =
+                match.selisih;
+        } else if (index === 1) {
+            selisih =
+                -match.selisih;
+        }
+
+        drawCell(
+            doc,
             xSelisih,
-            tableY + 6,
+            currentY,
+            selisihWidth,
+            rowHeight,
+            selisih,
             {
-                width: selisihWidth,
-                align: "center",
+                font: "Helvetica",
+                fontSize: 7,
             }
         );
 
-        // -----------------------------------------------------
-        // Total
-        // -----------------------------------------------------
+        // =====================================================
+        // TOTAL
+        //
+        // Baris 1 = total P1
+        // Baris 2 = total P2
+        // Baris 3 = kosong
+        // =====================================================
 
-        doc
-            .rect(
-                xTotal,
-                tableY,
-                totalWidth,
-                rowHeight
-            )
-            .stroke();
+        let total = "";
 
-        doc.text(
-            String(total),
+        if (index === 0) {
+            total =
+                peserta1.total;
+        } else if (
+            index === 1 &&
+            peserta2
+        ) {
+            total =
+                peserta2.total;
+        }
+
+        drawCell(
+            doc,
             xTotal,
-            tableY + 6,
+            currentY,
+            totalWidth,
+            rowHeight,
+            total,
             {
-                width: totalWidth,
-                align: "center",
+                font: "Helvetica",
+                fontSize: 7,
             }
         );
 
-        tableY += rowHeight;
-    });
+        currentY += rowHeight;
+    }
 
     // =========================================================
     // PEMENANG
     // =========================================================
 
-    doc.y = tableY + 8;
+    doc.y =
+        currentY + 7;
 
     if (match.winner_id) {
-        const winnerName =
-            Number(match.winner_id) ===
-                Number(peserta1.id)
-                ? peserta1Nama
-                : peserta2Nama;
+        let winnerName =
+            "";
 
-        doc
-            .font("Helvetica-Bold")
-            .fontSize(8)
-            .text(
-                `Pemenang: ${winnerName}`,
-                left
-            );
+        if (
+            Number(match.winner_id) ===
+            Number(peserta1.id)
+        ) {
+            winnerName =
+                peserta1Nama;
+        } else if (
+            peserta2 &&
+            Number(match.winner_id) ===
+            Number(peserta2.id)
+        ) {
+            winnerName =
+                peserta2Nama;
+        }
+
+        if (winnerName) {
+            doc
+                .font("Helvetica-Bold")
+                .fontSize(8)
+                .text(
+                    `Pemenang: ${winnerName}`,
+                    left
+                );
+        }
     }
 
-    // Jarak sebelum pertandingan berikutnya
-    doc.moveDown(1.2);
+    doc.moveDown(1);
 };
 
+// =============================================================
+// GENERATE PERTANDINGAN PDF
+// =============================================================
 const generatePertandinganPdf = ({
     matches,
     babak = "semua",
     status = "semua",
 }) =>
-    new Promise((resolve, reject) => {
-        const doc = new PDFDocument({
-            size: "A4",
-            layout: "portrait",
-            margins: {
-                top: 40,
-                bottom: 40,
-                left: 42,
-                right: 42,
-            },
-            info: {
-                Title: "Laporan Pertandingan",
-                Author: "Digital Scoring",
-            },
-        });
+    new Promise(
+        (resolve, reject) => {
+            const doc =
+                new PDFDocument({
+                    size: "A4",
+                    layout: "landscape",
 
-        const chunks = [];
+                    margins: {
+                        top: 35,
+                        bottom: 35,
+                        left: 25,
+                        right: 25,
+                    },
 
-        doc.on("data", (chunk) => chunks.push(chunk));
-        doc.on("end", () => resolve(Buffer.concat(chunks)));
-        doc.on("error", reject);
-
-        drawHeader(
-            doc,
-            "LAPORAN PERTANDINGAN",
-            `Babak: ${formatBabak(
-                babak
-            )}  |  Status: ${formatStatus(status)}`
-        );
-
-        if (!matches.length) {
-            doc
-                .font("Helvetica")
-                .fontSize(10)
-                .text(
-                    "Tidak ada data pertandingan sesuai filter."
-                );
-
-            doc.end();
-            return;
-        }
-
-        matches.forEach((match, index) => {
-            drawMatch(doc, match, index);
-        });
-
-        doc
-            .font("Helvetica")
-            .fontSize(7)
-            .fillColor("#666666")
-            .text(
-                `Total pertandingan: ${matches.length}`,
-                doc.page.margins.left,
-                doc.y,
-                {
-                    width:
-                        doc.page.width -
-                        doc.page.margins.left -
-                        doc.page.margins.right,
-                    align: "right",
-                    lineBreak: false,
-                }
-            );
-
-        doc.end();
-    });
-
-/**
- * Bracket horizontal.
- *
- * Penyisihan ditampilkan sebagai kolom kiri.
- * Babak berikutnya ditempatkan berurutan ke kanan.
- *
- * Karena jumlah pertandingan penyisihan dapat sangat banyak,
- * ukuran A3 landscape dipakai agar bracket lebih mudah dibaca.
- */
-const generateBracketPdf = ({ matches }) =>
-    new Promise((resolve, reject) => {
-        const doc = new PDFDocument({
-            size: "A3",
-            layout: "landscape",
-            margins: {
-                top: 35,
-                bottom: 35,
-                left: 30,
-                right: 30,
-            },
-            info: {
-                Title: "Tournament Bracket",
-                Author: "Digital Scoring",
-            },
-        });
-
-        const chunks = [];
-
-        doc.on("data", (chunk) => chunks.push(chunk));
-        doc.on("end", () => resolve(Buffer.concat(chunks)));
-        doc.on("error", reject);
-
-        drawHeader(
-            doc,
-            "TOURNAMENT BRACKET",
-            "Bagan keseluruhan pertandingan"
-        );
-
-        if (!matches.length) {
-            doc
-                .font("Helvetica")
-                .fontSize(12)
-                .text("Belum ada pertandingan.");
-
-            doc.end();
-            return;
-        }
-
-        const stages = [
-            "penyisihan",
-            "enam_belas_besar",
-            "perempat_final",
-            "semi_final",
-            "final",
-        ];
-
-        const grouped = Object.fromEntries(
-            stages.map((stage) => [
-                stage,
-                matches.filter(
-                    (match) => match.babak === stage
-                ),
-            ])
-        );
-
-        const availableWidth =
-            doc.page.width -
-            doc.page.margins.left -
-            doc.page.margins.right;
-
-        const stageGap = 16;
-        const stageWidth =
-            (availableWidth -
-                stageGap * (stages.length - 1)) /
-            stages.length;
-
-        const top = 90;
-        const cardHeight = 52;
-
-        stages.forEach((stage, stageIndex) => {
-            const stageMatches = grouped[stage] || [];
-            const x =
-                doc.page.margins.left +
-                stageIndex * (stageWidth + stageGap);
-
-            doc
-                .font("Helvetica-Bold")
-                .fontSize(10)
-                .text(formatBabak(stage), x, 62, {
-                    width: stageWidth,
-                    align: "center",
+                    info: {
+                        Title:
+                            "Laporan Pertandingan",
+                        Author:
+                            "Digital Scoring",
+                    },
                 });
 
-            if (!stageMatches.length) {
+            const chunks = [];
+
+            doc.on(
+                "data",
+                (chunk) =>
+                    chunks.push(chunk)
+            );
+
+            doc.on(
+                "end",
+                () =>
+                    resolve(
+                        Buffer.concat(
+                            chunks
+                        )
+                    )
+            );
+
+            doc.on(
+                "error",
+                reject
+            );
+
+            drawHeader(
+                doc,
+                "LAPORAN PERTANDINGAN",
+                `Babak: ${formatBabak(
+                    babak
+                )}  |  Status: ${formatStatus(
+                    status
+                )}`
+            );
+
+            if (!matches.length) {
                 doc
                     .font("Helvetica")
-                    .fontSize(7)
+                    .fontSize(10)
                     .text(
-                        "Belum ada pertandingan",
-                        x,
-                        top,
+                        "Tidak ada data pertandingan sesuai filter.",
                         {
-                            width: stageWidth,
                             align: "center",
                         }
                     );
+
+                doc.end();
                 return;
             }
 
-            const spacing = Math.max(
-                12,
-                Math.min(
-                    45,
-                    (doc.page.height - 150) /
-                    stageMatches.length -
-                    cardHeight
-                )
+            matches.forEach(
+                (match, index) => {
+                    drawMatch(
+                        doc,
+                        match,
+                        index
+                    );
+                }
             );
 
-            stageMatches.forEach((match, matchIndex) => {
-                const y =
-                    top +
-                    matchIndex *
-                    (cardHeight + spacing);
-
-                doc
-                    .roundedRect(
-                        x,
-                        y,
-                        stageWidth,
-                        cardHeight,
-                        5
-                    )
-                    .stroke();
-
-                const half = cardHeight / 2;
-
-                const winner1 =
-                    Number(match.winner_id) ===
-                    Number(match.peserta1.id);
-
-                const winner2 =
-                    Number(match.winner_id) ===
-                    Number(match.peserta2?.id);
-
-                doc.fontSize(7);
-
-                if (winner1) {
-                    doc.font("Helvetica-Bold");
-                } else {
-                    doc.font("Helvetica");
-                }
-
-                doc.text(
-                    `${winner1 ? "★ " : ""}${match.peserta1.nama
-                    }`,
-                    x + 7,
-                    y + 7,
+            doc
+                .font("Helvetica")
+                .fontSize(7)
+                .fillColor("#666666")
+                .text(
+                    `Total pertandingan: ${matches.length}`,
+                    doc.page.margins.left,
+                    doc.y,
                     {
-                        width: stageWidth * 0.72,
-                        ellipsis: true,
-                    }
-                );
-
-                doc.text(
-                    String(match.peserta1.score ?? 0),
-                    x + stageWidth * 0.76,
-                    y + 7,
-                    {
-                        width: stageWidth * 0.18,
+                        width:
+                            doc.page.width -
+                            doc.page.margins.left -
+                            doc.page.margins.right,
                         align: "right",
+                        lineBreak: false,
                     }
                 );
 
-                if (match.peserta2) {
-                    if (winner2) {
-                        doc.font("Helvetica-Bold");
-                    } else {
-                        doc.font("Helvetica");
-                    }
+            doc.end();
+        }
+    );
 
-                    doc.text(
-                        `${winner2 ? "★ " : ""}${match.peserta2.nama
-                        }`,
-                        x + 7,
-                        y + half + 3,
-                        {
-                            width: stageWidth * 0.72,
-                            ellipsis: true,
-                        }
-                    );
+// =============================================================
+// GENERATE BRACKET PDF
+// =============================================================
+const generateBracketPdf = ({
+    matches,
+}) =>
+    new Promise(
+        (resolve, reject) => {
+            const doc =
+                new PDFDocument({
+                    size: "A3",
+                    layout: "landscape",
 
-                    doc.text(
-                        String(
-                            match.peserta2.score ?? 0
-                        ),
-                        x + stageWidth * 0.76,
-                        y + half + 3,
-                        {
-                            width: stageWidth * 0.18,
-                            align: "right",
-                        }
-                    );
-                } else {
-                    doc
-                        .font("Helvetica")
-                        .fontSize(7)
-                        .text(
-                            "BYE",
-                            x + 7,
-                            y + half + 3
-                        );
-                }
+                    margins: {
+                        top: 35,
+                        bottom: 35,
+                        left: 30,
+                        right: 30,
+                    },
 
-                // garis pembatas peserta dalam card
-                doc
-                    .moveTo(x, y + half)
-                    .lineTo(x + stageWidth, y + half)
-                    .stroke();
+                    info: {
+                        Title:
+                            "Tournament Bracket",
+                        Author:
+                            "Digital Scoring",
+                    },
+                });
 
-                // konektor antar kolom.
-                if (stageIndex < stages.length - 1) {
-                    const nextX =
-                        x +
-                        stageWidth +
-                        stageGap;
+            const chunks = [];
 
-                    const connectorY =
-                        y + cardHeight / 2;
+            doc.on(
+                "data",
+                (chunk) =>
+                    chunks.push(chunk)
+            );
 
-                    doc
-                        .moveTo(
-                            x + stageWidth,
-                            connectorY
+            doc.on(
+                "end",
+                () =>
+                    resolve(
+                        Buffer.concat(
+                            chunks
                         )
-                        .lineTo(
-                            nextX,
-                            connectorY
-                        )
-                        .stroke();
-                }
-            });
-        });
+                    )
+            );
 
-        const finalMatch =
-            grouped.final?.[0] || null;
+            doc.on(
+                "error",
+                reject
+            );
 
-        if (finalMatch?.winner_id) {
-            const winner =
-                Number(finalMatch.winner_id) ===
-                    Number(finalMatch.peserta1.id)
-                    ? finalMatch.peserta1
-                    : finalMatch.peserta2;
+            drawHeader(
+                doc,
+                "TOURNAMENT BRACKET",
+                "Bagan keseluruhan pertandingan"
+            );
 
-            if (winner) {
+            if (!matches.length) {
                 doc
-                    .font("Helvetica-Bold")
+                    .font("Helvetica")
                     .fontSize(12)
                     .text(
-                        `JUARA: ${winner.nama}`,
-                        {
-                            align: "center",
+                        "Belum ada pertandingan."
+                    );
+
+                doc.end();
+                return;
+            }
+
+            const stages = [
+                "penyisihan",
+                "enam_belas_besar",
+                "perempat_final",
+                "semi_final",
+                "final",
+            ];
+
+            const grouped =
+                Object.fromEntries(
+                    stages.map(
+                        (stage) => [
+                            stage,
+                            matches.filter(
+                                (match) =>
+                                    match.babak ===
+                                    stage
+                            ),
+                        ]
+                    )
+                );
+
+            const availableWidth =
+                doc.page.width -
+                doc.page.margins.left -
+                doc.page.margins.right;
+
+            const stageGap = 16;
+
+            const stageWidth =
+                (
+                    availableWidth -
+                    stageGap *
+                    (stages.length - 1)
+                ) /
+                stages.length;
+            // Atur tinggi card border
+            const top = 100;
+            const cardHeight = 52;
+
+            stages.forEach(
+                (
+                    stage,
+                    stageIndex
+                ) => {
+                    const stageMatches =
+                        grouped[stage] ||
+                        [];
+
+                    const x =
+                        doc.page.margins.left +
+                        stageIndex *
+                        (
+                            stageWidth +
+                            stageGap
+                        );
+
+                    doc
+                        .font(
+                            "Helvetica-Bold"
+                        )
+                        .fontSize(10)
+                        .fillColor("#000000")
+                        .text(
+                            formatBabak(
+                                stage
+                            ),
+                            x,
+                            80, // Atur tinggi header
+                            {
+                                width:
+                                    stageWidth,
+                                align:
+                                    "center",
+                            }
+                        );
+
+                    if (
+                        !stageMatches.length
+                    ) {
+                        doc
+                            .font(
+                                "Helvetica"
+                            )
+                            .fontSize(7)
+                            .text(
+                                "Belum ada pertandingan",
+                                x,
+                                top,
+                                {
+                                    width:
+                                        stageWidth,
+                                    align:
+                                        "center",
+                                }
+                            );
+
+                        return;
+                    }
+
+                    const spacing =
+                        Math.max(
+                            12,
+                            Math.min(
+                                15,
+                                (
+                                    doc.page.height -
+                                    250
+                                ) /
+                                    stageMatches.length -
+                                    cardHeight
+                            )
+                        );
+
+                    stageMatches.forEach(
+                        (
+                            match,
+                            matchIndex
+                        ) => {
+                            const y =
+                                top +
+                                matchIndex *
+                                (
+                                    cardHeight +
+                                    spacing
+                                );
+
+                            doc
+                                .roundedRect(
+                                    x,
+                                    y,
+                                    stageWidth,
+                                    cardHeight,
+                                    5
+                                )
+                                .stroke();
+
+                            const half =
+                                cardHeight /
+                                2;
+
+                            const winner1 =
+                                Number(
+                                    match.winner_id
+                                ) ===
+                                Number(
+                                    match
+                                        .peserta1
+                                        .id
+                                );
+
+                            const winner2 =
+                                Number(
+                                    match.winner_id
+                                ) ===
+                                Number(
+                                    match
+                                        .peserta2
+                                        ?.id
+                                );
+
+                            doc
+                                .fontSize(7);
+
+                            doc.font(
+                                winner1
+                                    ? "Helvetica-Bold"
+                                    : "Helvetica"
+                            );
+
+                            doc.text(
+                                `${
+                                    winner1
+                                        ? "★ "
+                                        : ""
+                                }${
+                                    match
+                                        .peserta1
+                                        .nama
+                                }`,
+                                x + 7,
+                                y + 7,
+                                {
+                                    width:
+                                        stageWidth *
+                                        0.72,
+                                    ellipsis:
+                                        true,
+                                }
+                            );
+
+                            doc.text(
+                                String(
+                                    match
+                                        .peserta1
+                                        .score ??
+                                    0
+                                ),
+                                x +
+                                    stageWidth *
+                                    0.76,
+                                y + 7,
+                                {
+                                    width:
+                                        stageWidth *
+                                        0.18,
+                                    align:
+                                        "right",
+                                }
+                            );
+
+                            if (
+                                match.peserta2
+                            ) {
+                                doc.font(
+                                    winner2
+                                        ? "Helvetica-Bold"
+                                        : "Helvetica"
+                                );
+
+                                doc.text(
+                                    `${
+                                        winner2
+                                            ? "★ "
+                                            : ""
+                                    }${
+                                        match
+                                            .peserta2
+                                            .nama
+                                    }`,
+                                    x + 7,
+                                    y +
+                                        half +
+                                        7,
+                                    {
+                                        width:
+                                            stageWidth *
+                                            0.72,
+                                        ellipsis:
+                                            true,
+                                    }
+                                );
+
+                                doc.text(
+                                    String(
+                                        match
+                                            .peserta2
+                                            .score ??
+                                        0
+                                    ),
+                                    x +
+                                        stageWidth *
+                                        0.76,
+                                    y +
+                                        half +
+                                        7,
+                                    {
+                                        width:
+                                            stageWidth *
+                                            0.18,
+                                        align:
+                                            "right",
+                                    }
+                                );
+                            } else {
+                                doc
+                                    .font(
+                                        "Helvetica"
+                                    )
+                                    .fontSize(7)
+                                    .text(
+                                        "BYE",
+                                        x + 7,
+                                        y +
+                                            half +
+                                            7
+                                    );
+                            }
+
+                            // Garis pembatas peserta
+                            doc
+                                .moveTo(
+                                    x,
+                                    y + half
+                                )
+                                .lineTo(
+                                    x +
+                                        stageWidth,
+                                    y + half
+                                )
+                                .stroke();
+
+                            // Konektor
+                            if (
+                                stageIndex <
+                                stages.length -
+                                    1
+                            ) {
+                                const nextX =
+                                    x +
+                                    stageWidth +
+                                    stageGap;
+
+                                const connectorY =
+                                    y +
+                                    cardHeight /
+                                        2;
+
+                                doc
+                                    .moveTo(
+                                        x +
+                                            stageWidth,
+                                        connectorY
+                                    )
+                                    .lineTo(
+                                        nextX,
+                                        connectorY
+                                    )
+                                    .stroke();
+                            }
                         }
                     );
-            }
-        }
+                }
+            );
 
-        doc.end();
-    });
+            const finalMatch =
+                grouped.final?.[0] ||
+                null;
+
+            if (
+                finalMatch?.winner_id
+            ) {
+                const winner =
+                    Number(
+                        finalMatch.winner_id
+                    ) ===
+                    Number(
+                        finalMatch
+                            .peserta1
+                            .id
+                    )
+                        ? finalMatch.peserta1
+                        : finalMatch.peserta2;
+
+                if (winner) {
+                    doc
+                        .font(
+                            "Helvetica-Bold"
+                        )
+                        .fontSize(12)
+                        .text(
+                            `JUARA: ${winner.nama}`,
+                            {
+                                align:
+                                    "center",
+                            }
+                        );
+                }
+            }
+
+            doc.end();
+        }
+    );
 
 module.exports = {
     generatePertandinganPdf,
