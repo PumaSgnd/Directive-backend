@@ -12,6 +12,7 @@ const pertandinganRoute = require("./src/routes/pertandinganRoute.js");
 const penilaianRoute = require("./src/routes/penilaianRoutes.js");
 const profileRoutes = require("./src/routes/profileRoutes.js");
 const exportRoutes = require("./src/routes/exportRoutes.js");
+const authRoutes = require("./src/routes/authRoutes.js");
 
 require("dotenv").config();
 
@@ -28,6 +29,7 @@ app.use(
     )
 );
 
+app.use("/api/auth", authRoutes);
 app.use("/api/register", registerRoute);
 app.use("/api/login", loginRoute);
 app.use("/api/user", userRoute);
