@@ -510,6 +510,62 @@ const createPertandingan = async (
             );
         }
 
+        const [existingParticipants] = await conn.query(
+            `
+            SELECT
+                p.id,
+                p.babak,
+                p.peserta1_id,
+                p.peserta2_id,
+                CASE
+                    WHEN p.peserta1_id IN (?, ?)
+                        THEN p1.name
+                    ELSE p2.name
+                END AS name
+            FROM pertandingan p
+            LEFT JOIN peserta p1
+                ON p1.id = p.peserta1_id
+            LEFT JOIN peserta p2
+                ON p2.id = p.peserta2_id
+            WHERE
+                p.peserta1_id IN (?, ?)
+                OR p.peserta2_id IN (?, ?)
+            LIMIT 1
+            `,
+            [
+                peserta1_id,
+                peserta2_id,
+                peserta1_id,
+                peserta2_id,
+                peserta1_id,
+                peserta2_id,
+            ]
+        );
+
+        if (existingParticipants.length > 0) {
+            const existing = existingParticipants[0];
+
+            const peserta1SudahTerdaftar =
+                Number(existing.peserta1_id) === Number(peserta1_id) ||
+                Number(existing.peserta2_id) === Number(peserta1_id);
+
+            const peserta2SudahTerdaftar =
+                Number(existing.peserta1_id) === Number(peserta2_id) ||
+                Number(existing.peserta2_id) === Number(peserta2_id);
+
+            if (peserta1SudahTerdaftar) {
+                throw new Error(
+                    `Peserta ${existing.name} sudah terdaftar dalam turnamen.`
+                );
+            }
+
+            if (peserta2SudahTerdaftar) {
+                throw new Error(
+                    `Peserta ${existing.name} sudah terdaftar dalam turnamen.`
+                );
+            }
+        }
+
         const [result] =
             await conn.query(
                 `
@@ -650,6 +706,48 @@ const updatePertandingan = async (
 
                 values.push(
                     data[key]
+                );
+            }
+        }
+
+        const nextPeserta1Id =
+            data.peserta1_id !== undefined
+                ? Number(data.peserta1_id)
+                : Number(match.peserta1_id);
+
+        const nextPeserta2Id =
+            data.peserta2_id !== undefined
+                ? Number(data.peserta2_id)
+                : Number(match.peserta2_id);
+
+        if (nextPeserta1Id === nextPeserta2Id) {
+            throw new Error("Peserta tidak boleh sama.");
+        }
+
+        for (const pesertaId of [peserta1_id, peserta2_id]) {
+            const [[existing]] = await conn.query(
+                `
+                SELECT
+                    p.id,
+                    ps.name
+                FROM pertandingan p
+                INNER JOIN peserta ps
+                    ON ps.id = ?
+                WHERE
+                    p.peserta1_id = ?
+                    OR p.peserta2_id = ?
+                LIMIT 1
+                `,
+                [
+                    pesertaId,
+                    pesertaId,
+                    pesertaId,
+                ]
+            );
+
+            if (existing) {
+                throw new Error(
+                    `Peserta ${existing.name} sudah terdaftar dalam turnamen.`
                 );
             }
         }
@@ -1018,46 +1116,50 @@ const resumePertandingan = async (id) => {
         );
 
         if (!match) {
-            throw new Error(
-                "Pertandingan tidak ditemukan."
-            );
+            throw new Error("Pertandingan tidak ditemukan.");
         }
 
         if (match.status !== "pause") {
-            throw new Error(
-                "Pertandingan tidak sedang pause."
-            );
+            throw new Error("Pertandingan tidak sedang pause.");
         }
 
-        const remainingSeconds =
-            Number(match.sisa_detik);
-
-        if (
-            !Number.isInteger(remainingSeconds) ||
-            remainingSeconds <= 0
-        ) {
-            throw new Error(
-                "Sisa waktu pertandingan tidak valid."
-            );
-        }
+        const currentRound = Number(match.ronde_aktif);
+        const totalRound = Number(match.total_ronde);
+        const durationSeconds =
+            Number(match.durasi_ronde_menit) * 60;
 
         const isNewRound =
-            match.ronde_mulai_at === null;
+            match.ronde_mulai_at === null &&
+            Number(match.sisa_detik) === 0;
+
+        let nextRound = currentRound;
+        let nextSeconds = Number(match.sisa_detik);
+
+        if (isNewRound) {
+            nextRound = currentRound + 1;
+
+            if (nextRound > totalRound) {
+                throw new Error("Tidak ada ronde berikutnya.");
+            }
+
+            nextSeconds = durationSeconds;
+        }
 
         await conn.query(
             `
             UPDATE pertandingan
             SET
                 status = 'berlangsung',
-                ronde_mulai_at =
-                    CASE
-                        WHEN ronde_mulai_at IS NULL
-                            THEN NOW()
-                        ELSE ronde_mulai_at
-                    END
+                ronde_aktif = ?,
+                ronde_mulai_at = NOW(),
+                sisa_detik = ?
             WHERE id = ?
             `,
-            [id]
+            [
+                nextRound,
+                nextSeconds,
+                id,
+            ]
         );
 
         await conn.commit();
@@ -1065,11 +1167,9 @@ const resumePertandingan = async (id) => {
         return {
             ...match,
             status: "berlangsung",
-            ronde_mulai_at:
-                isNewRound
-                    ? new Date()
-                    : match.ronde_mulai_at,
-            sisa_detik: remainingSeconds,
+            ronde_aktif: nextRound,
+            ronde_mulai_at: new Date(),
+            sisa_detik: nextSeconds,
             durasi_ronde_menit:
                 Number(match.durasi_ronde_menit),
             is_new_round: isNewRound,
@@ -1078,7 +1178,6 @@ const resumePertandingan = async (id) => {
     } catch (err) {
         await conn.rollback();
         throw err;
-
     } finally {
         conn.release();
     }
@@ -1091,8 +1190,10 @@ const finishRonde = async (
     winner_id
 ) => {
     const conn = await pool.getConnection();
+
     try {
         await conn.beginTransaction();
+
         const [[match]] = await conn.query(
             `
             SELECT *
@@ -1104,9 +1205,26 @@ const finishRonde = async (
         );
 
         if (!match) {
-            throw new Error(
-                "Pertandingan tidak ditemukan."
-            );
+            throw new Error("Pertandingan tidak ditemukan.");
+        }
+
+        if (match.status === "pause") {
+            await conn.commit();
+
+            return {
+                next_round:
+                    Number(match.ronde_aktif) <
+                    Number(match.total_ronde),
+                ronde_aktif:
+                    Number(match.ronde_aktif),
+                status: "pause",
+                ronde_mulai_at: null,
+                sisa_detik: 0,
+                durasi_ronde_menit:
+                    Number(match.durasi_ronde_menit),
+                next_round_number:
+                    Number(match.ronde_aktif) + 1,
+            };
         }
 
         if (match.status !== "berlangsung") {
@@ -1115,33 +1233,62 @@ const finishRonde = async (
             );
         }
 
-        const remain =
-            sisa_detik !== undefined &&
-                sisa_detik !== null
-                ? Number(sisa_detik)
-                : Number(match.sisa_detik ?? 0);
-
         const roundDuration =
             Number(match.durasi_ronde_menit) * 60;
 
-        const minRoundSeconds =
-            MIN_ROUND_SECONDS;
+        const [serverTimeRows] = await conn.query(
+            `
+            SELECT
+                GREATEST(
+                    0,
+                    ? - TIMESTAMPDIFF(
+                        SECOND,
+                        ronde_mulai_at,
+                        NOW()
+                    )
+                ) AS server_sisa_detik
+            FROM pertandingan
+            WHERE id = ?
+            `,
+            [
+                roundDuration,
+                id,
+            ]
+        );
+
+        const serverRemain = Number(
+            serverTimeRows[0]?.server_sisa_detik ?? 0
+        );
+
+        const clientRemain =
+            sisa_detik !== undefined &&
+                sisa_detik !== null
+                ? Number(sisa_detik)
+                : serverRemain;
 
         if (
-            !Number.isInteger(remain) ||
-            remain < 0 ||
-            remain > roundDuration
+            !Number.isInteger(clientRemain) ||
+            clientRemain < 0 ||
+            clientRemain > roundDuration
         ) {
             throw new Error(
                 "Sisa waktu ronde tidak valid."
             );
         }
 
+        const remain = Math.min(
+            clientRemain,
+            serverRemain
+        );
+
         const elapsed =
             roundDuration - remain;
 
+        const isTimeUp = remain <= 0;
+
         if (
-            elapsed < minRoundSeconds &&
+            elapsed < MIN_ROUND_SECONDS &&
+            !isTimeUp &&
             ![
                 "KO",
                 "selisih_skor",
@@ -1160,46 +1307,48 @@ const finishRonde = async (
             Number(match.total_ronde);
 
         if (currentRound < totalRound) {
-            const nextRound =
-                currentRound + 1;
-
             await conn.query(
                 `
                 UPDATE pertandingan
                 SET
-                    ronde_aktif = ?,
-                    ronde_mulai_at = NULL,
-                    sisa_detik = ?,
-                    status = 'pause'
-                WHERE id = ?
+                    status = 'pause',
+                    sisa_detik = 0,
+                    ronde_mulai_at = NULL
+                WHERE
+                    id = ?
+                    AND status = 'berlangsung'
                 `,
-                [
-                    nextRound,
-                    roundDuration,
-                    id,
-                ]
+                [id]
             );
+
             await conn.commit();
+
             return {
                 next_round: true,
-                ronde_aktif: nextRound,
+                ronde_aktif: currentRound,
                 status: "pause",
                 ronde_mulai_at: null,
-                sisa_detik: roundDuration,
+                sisa_detik: 0,
                 durasi_ronde_menit:
                     Number(match.durasi_ronde_menit),
+                next_round_number:
+                    currentRound + 1,
             };
         }
+
         await conn.query(
             `
             UPDATE pertandingan
             SET
                 status = 'selesai',
                 sisa_detik = 0,
+                ronde_mulai_at = NULL,
                 waktu_selesai = NOW(),
                 alasan_selesai = ?,
                 winner_id = ?
-            WHERE id = ?
+            WHERE
+                id = ?
+                AND status = 'berlangsung'
             `,
             [
                 alasan,
@@ -1207,17 +1356,19 @@ const finishRonde = async (
                 id,
             ]
         );
+
         await conn.commit();
+
         return {
             next_round: false,
             status: "selesai",
             sisa_detik: 0,
             winner_id: winner_id ?? null,
         };
+
     } catch (err) {
         await conn.rollback();
         throw err;
-
     } finally {
         conn.release();
     }
@@ -1545,120 +1696,168 @@ const pairPesertaByWeight = (
     };
 };
 
-const generateNextBabak = async (
-    babak
-) => {
-    const next =
-        NEXT_BABAK[babak];
+const generateNextBabak = async (babak) => {
+    const next = NEXT_BABAK[babak];
 
-    if (!next) {
+    if (!next) return;
+
+    const [[existing]] = await pool.query(
+        `SELECT COUNT(*) total
+         FROM pertandingan
+         WHERE babak = ?`,
+        [next]
+    );
+
+    if (Number(existing.total) > 0) return;
+
+    const [matches] = await pool.query(
+        `SELECT
+            id,
+            peserta1_id,
+            peserta2_id,
+            status,
+            winner_id
+         FROM pertandingan
+         WHERE babak = ?
+         ORDER BY id ASC`,
+        [babak]
+    );
+
+    if (!matches.length) return;
+
+    if (matches.some((m) => m.status !== "selesai")) {
         return;
     }
 
-    const [[existing]] =
-        await pool.query(
-            `
-            SELECT COUNT(*) total
-            FROM pertandingan
-            WHERE babak = ?
-            `,
-            [next]
-        );
-
-    if (
-        Number(existing.total) > 0
-    ) {
+    if (matches.some((m) => !m.winner_id)) {
         return;
     }
 
-    const [matches] =
-        await pool.query(
-            `
-            SELECT
-                id,
-                peserta1_id,
-                peserta2_id,
-                status,
-                winner_id
+    if (babak === "semi_final") {
+        if (matches.length !== 2) {
+            throw new Error(
+                "Semi Final harus memiliki tepat 2 pertandingan."
+            );
+        }
 
-            FROM pertandingan
+        const sf1 = matches[0];
+        const sf2 = matches[1];
+        const winner1 = Number(sf1.winner_id);
+        const winner2 = Number(sf2.winner_id);
 
-            WHERE babak = ?
+        const getLoserId = (match) => {
+            const peserta1 = Number(match.peserta1_id);
+            const peserta2 = Number(match.peserta2_id);
+            const winner = Number(match.winner_id);
 
-            ORDER BY id ASC
-            `,
-            [babak]
-        );
+            if (!peserta1 || !peserta2) {
+                throw new Error(
+                    `Peserta pada pertandingan ${match.id} tidak lengkap.`
+                );
+            }
 
-    if (!matches.length) {
-        return;
-    }
+            if (winner !== peserta1 && winner !== peserta2) {
+                throw new Error(
+                    `Winner pertandingan ${match.id} tidak valid.`
+                );
+            }
 
-    if (
-        matches.some(
-            (m) =>
-                m.status !==
-                "selesai"
-        )
-    ) {
-        return;
-    }
+            return winner === peserta1
+                ? peserta2
+                : peserta1;
+        };
 
-    if (
-        matches.some(
-            (m) => !m.winner_id
-        )
-    ) {
-        return;
-    }
+        const loser1 = getLoserId(sf1);
+        const loser2 = getLoserId(sf2);
 
-    const winnerIds =
-        matches.map(
-            (m) =>
-                Number(
-                    m.winner_id
+        const conn = await pool.getConnection();
+
+        try {
+            await conn.beginTransaction();
+
+            await conn.query(
+                `INSERT INTO pertandingan
+                (
+                    babak,
+                    jenis_final,
+                    durasi_ronde_menit,
+                    peserta1_id,
+                    peserta2_id,
+                    ronde_aktif,
+                    total_ronde,
+                    sisa_detik
                 )
-        );
+                VALUES (?, ?, '2', ?, ?, 1, ?, 120)`,
+                [
+                    next,
+                    "utama",
+                    winner1,
+                    winner2,
+                    TOTAL_ROUNDS,
+                ]
+            );
 
-    const placeholders =
+            await conn.query(
+                `INSERT INTO pertandingan
+                (
+                    babak,
+                    jenis_final,
+                    durasi_ronde_menit,
+                    peserta1_id,
+                    peserta2_id,
+                    ronde_aktif,
+                    total_ronde,
+                    sisa_detik
+                )
+                VALUES (?, ?, '2', ?, ?, 1, ?, 120)`,
+                [
+                    next,
+                    "juara_3",
+                    loser1,
+                    loser2,
+                    TOTAL_ROUNDS,
+                ]
+            );
+
+            await conn.commit();
+        } catch (err) {
+            await conn.rollback();
+            throw err;
+        } finally {
+            conn.release();
+        }
+
+        return;
+    }
+
+    const winnerIds = matches.map(
+        (m) => Number(m.winner_id)
+    );
+
+    const placeholders = winnerIds
+        .map(() => "?")
+        .join(",");
+
+    const [peserta] = await pool.query(
+        `SELECT
+            id,
+            name,
+            weight
+         FROM peserta
+         WHERE id IN (${placeholders})`,
         winnerIds
-            .map(() => "?")
-            .join(",");
+    );
 
-    const [peserta] =
-        await pool.query(
-            `
-            SELECT
-                id,
-                name,
-                weight
+    const { pairs, bye } = pairPesertaByWeight(peserta);
 
-            FROM peserta
-
-            WHERE id IN
-                (${placeholders})
-            `,
-            winnerIds
-        );
-
-    const {
-        pairs,
-        bye,
-    } =
-        pairPesertaByWeight(
-            peserta
-        );
-
-    const conn =
-        await pool.getConnection();
+    const conn = await pool.getConnection();
 
     try {
         await conn.beginTransaction();
 
         for (const pair of pairs) {
             await conn.query(
-                `
-                INSERT INTO pertandingan
+                `INSERT INTO pertandingan
                 (
                     babak,
                     durasi_ronde_menit,
@@ -1668,10 +1867,7 @@ const generateNextBabak = async (
                     total_ronde,
                     sisa_detik
                 )
-
-                VALUES
-                (?, '2', ?, ?, 1, ?, 120)
-                `,
+                VALUES (?, '2', ?, ?, 1, ?, 120)`,
                 [
                     next,
                     pair.peserta1_id,
@@ -1683,8 +1879,7 @@ const generateNextBabak = async (
 
         if (bye) {
             await conn.query(
-                `
-                INSERT INTO pertandingan
+                `INSERT INTO pertandingan
                 (
                     babak,
                     durasi_ronde_menit,
@@ -1698,22 +1893,7 @@ const generateNextBabak = async (
                     waktu_selesai,
                     alasan_selesai
                 )
-
-                VALUES
-                (
-                    ?,
-                    '2',
-                    ?,
-                    ?,
-                    'selesai',
-                    ?,
-                    ?,
-                    ?,
-                    0,
-                    NOW(),
-                    'bye'
-                )
-                `,
+                VALUES (?, '2', ?, ?, 'selesai', ?, ?, ?, 0, NOW(), 'bye')`,
                 [
                     next,
                     bye.id,
@@ -1726,11 +1906,9 @@ const generateNextBabak = async (
         }
 
         await conn.commit();
-
     } catch (err) {
         await conn.rollback();
         throw err;
-
     } finally {
         conn.release();
     }
@@ -1740,6 +1918,7 @@ const updateTimer = async (
     id,
     sisa_detik
 ) => {
+
     const seconds =
         Number(sisa_detik);
 
@@ -1757,11 +1936,12 @@ const updateTimer = async (
         await pool.query(
             `
             SELECT
+                id,
                 status,
-                ronde_aktif
-
+                ronde_aktif,
+                ronde_mulai_at,
+                sisa_detik
             FROM pertandingan
-
             WHERE id = ?
             `,
             [id]
@@ -1782,24 +1962,36 @@ const updateTimer = async (
         );
     }
 
-    const [result] =
+    await pool.query(
+        `
+        UPDATE pertandingan
+        SET sisa_detik = ?
+        WHERE
+            id = ?
+            AND status = 'berlangsung'
+        `,
+        [
+            seconds,
+            id,
+        ]
+    );
+
+    const [[updatedMatch]] =
         await pool.query(
             `
-            UPDATE pertandingan
-
-            SET sisa_detik = ?
-
-            WHERE
-                id = ?
-                AND status = 'berlangsung'
-            `,
-            [
-                seconds,
+            SELECT
                 id,
-            ]
+                status,
+                ronde_aktif,
+                ronde_mulai_at,
+                sisa_detik
+            FROM pertandingan
+            WHERE id = ?
+            `,
+            [id]
         );
 
-    return result.affectedRows > 0;
+    return updatedMatch;
 };
 
 module.exports = {

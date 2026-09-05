@@ -1,8 +1,5 @@
 const PDFDocument = require("pdfkit");
 
-// =============================================================
-// LABEL BABAK
-// =============================================================
 const BABAK_LABEL = {
     penyisihan: "Penyisihan",
     enam_belas_besar: "16 Besar",
@@ -10,10 +7,6 @@ const BABAK_LABEL = {
     semi_final: "Semi Final",
     final: "Final",
 };
-
-// =============================================================
-// LABEL STATUS
-// =============================================================
 const STATUS_LABEL = {
     belum_mulai: "Belum Mulai",
     berlangsung: "Berlangsung",
@@ -21,9 +14,6 @@ const STATUS_LABEL = {
     selesai: "Selesai",
 };
 
-// =============================================================
-// FORMAT BABAK
-// =============================================================
 const formatBabak = (value) =>
     BABAK_LABEL[value] ||
     String(value || "-")
@@ -32,9 +22,6 @@ const formatBabak = (value) =>
             char.toUpperCase()
         );
 
-// =============================================================
-// FORMAT STATUS
-// =============================================================
 const formatStatus = (value) =>
     STATUS_LABEL[value] ||
     String(value || "-")
@@ -43,9 +30,6 @@ const formatStatus = (value) =>
             char.toUpperCase()
         );
 
-// =============================================================
-// FORMAT DATE
-// =============================================================
 const formatDate = (value) => {
     if (!value) return "-";
 
@@ -61,9 +45,6 @@ const formatDate = (value) => {
     });
 };
 
-// =============================================================
-// SANITIZE FILE NAME
-// =============================================================
 const sanitizeFileName = (value) =>
     String(value || "export")
         .replace(
@@ -72,9 +53,6 @@ const sanitizeFileName = (value) =>
         )
         .replace(/\s+/g, "_");
 
-// =============================================================
-// HEADER PDF
-// =============================================================
 const drawHeader = (
     doc,
     title,
@@ -98,9 +76,6 @@ const drawHeader = (
     doc.moveDown(0.8);
 };
 
-// =============================================================
-// CEK SPACE
-// =============================================================
 const ensureSpace = (
     doc,
     height
@@ -120,9 +95,6 @@ const ensureSpace = (
     return false;
 };
 
-// =============================================================
-// DRAW CELL
-// =============================================================
 const drawCell = (
     doc,
     x,
@@ -188,9 +160,6 @@ const drawCell = (
     );
 };
 
-// =============================================================
-// DRAW MATCH
-// =============================================================
 const drawMatch = (
     doc,
     match,
@@ -210,9 +179,11 @@ const drawMatch = (
             []
         ).slice(0, 3);
 
-    // =========================================================
-    // KONFIGURASI TABEL
-    // =========================================================
+    const formatRegional = (value) =>
+        String(value || "-")
+            .replace(/_/g, " ")
+            .toLowerCase()
+            .replace(/\b\w/g, (char) => char.toUpperCase());
 
     const titleHeight = 30;
 
@@ -245,10 +216,6 @@ const drawMatch = (
         estimatedHeight
     );
 
-    // =========================================================
-    // DATA PESERTA
-    // =========================================================
-
     const peserta1 =
         match.peserta1 || {};
 
@@ -261,30 +228,23 @@ const drawMatch = (
     const peserta2Nama =
         peserta2?.nama || "-";
 
-    const peserta1Regional =
-        peserta1.regional || "-";
-
-    const peserta2Regional =
-        peserta2?.regional || "-";
+    const peserta1Regional = formatRegional(peserta1.regional);
+    const peserta2Regional = formatRegional(peserta2?.regional);
 
     const peserta1Weight =
         peserta1.berat !==
             undefined &&
-        peserta1.berat !== null
+            peserta1.berat !== null
             ? `${peserta1.berat} Kg`
             : "-";
 
     const peserta2Weight =
         peserta2 &&
-        peserta2.berat !==
+            peserta2.berat !==
             undefined &&
-        peserta2.berat !== null
+            peserta2.berat !== null
             ? `${peserta2.berat} Kg`
             : "-";
-
-    // =========================================================
-    // JUDUL PERTANDINGAN
-    // =========================================================
 
     doc
         .font("Helvetica-Bold")
@@ -309,20 +269,6 @@ const drawMatch = (
         );
 
     doc.moveDown(0.4);
-
-    // =========================================================
-    // LEBAR KOLOM
-    //
-    // Peserta
-    // Regional
-    // Weight
-    // Juri
-    // R1 P1/P2
-    // R2 P1/P2
-    // R3 P1/P2
-    // Selisih
-    // Total
-    // =========================================================
 
     const pesertaWidth =
         availableWidth * 0.105;
@@ -353,10 +299,6 @@ const drawMatch = (
         juriWidth -
         roundWidth -
         selisihWidth;
-
-    // =========================================================
-    // X POSITION
-    // =========================================================
 
     const xPeserta =
         left;
@@ -393,16 +335,8 @@ const drawMatch = (
         xSelisih +
         selisihWidth;
 
-    // =========================================================
-    // TABLE Y
-    // =========================================================
-
     const tableY =
         doc.y;
-
-    // =========================================================
-    // HEADER PESERTA
-    // =========================================================
 
     drawCell(
         doc,
@@ -417,10 +351,6 @@ const drawMatch = (
         }
     );
 
-    // =========================================================
-    // HEADER REGIONAL
-    // =========================================================
-
     drawCell(
         doc,
         xRegional,
@@ -433,10 +363,6 @@ const drawMatch = (
             fontSize: 7,
         }
     );
-
-    // =========================================================
-    // HEADER WEIGHT
-    // =========================================================
 
     drawCell(
         doc,
@@ -451,10 +377,6 @@ const drawMatch = (
         }
     );
 
-    // =========================================================
-    // HEADER JURI
-    // =========================================================
-
     drawCell(
         doc,
         xJuri,
@@ -467,10 +389,6 @@ const drawMatch = (
             fontSize: 7,
         }
     );
-
-    // =========================================================
-    // HEADER ROUND 1
-    // =========================================================
 
     drawCell(
         doc,
@@ -514,10 +432,6 @@ const drawMatch = (
         }
     );
 
-    // =========================================================
-    // HEADER ROUND 2
-    // =========================================================
-
     drawCell(
         doc,
         xRound2,
@@ -559,10 +473,6 @@ const drawMatch = (
             fontSize: 6.5,
         }
     );
-
-    // =========================================================
-    // HEADER ROUND 3
-    // =========================================================
 
     drawCell(
         doc,
@@ -606,10 +516,6 @@ const drawMatch = (
         }
     );
 
-    // =========================================================
-    // HEADER SELISIH
-    // =========================================================
-
     drawCell(
         doc,
         xSelisih,
@@ -622,10 +528,6 @@ const drawMatch = (
             fontSize: 7,
         }
     );
-
-    // =========================================================
-    // HEADER TOTAL
-    // =========================================================
 
     drawCell(
         doc,
@@ -640,10 +542,6 @@ const drawMatch = (
         }
     );
 
-    // =========================================================
-    // DATA JURI
-    // =========================================================
-
     let currentY =
         tableY +
         tableHeaderHeight;
@@ -655,14 +553,6 @@ const drawMatch = (
     ) {
         const row =
             juriList[index];
-
-        // =====================================================
-        // PESERTA
-        //
-        // Baris 1 = Peserta 1
-        // Baris 2 = Peserta 2
-        // Baris 3 = kosong
-        // =====================================================
 
         let namaPeserta = "";
         let regional = "";
@@ -739,10 +629,6 @@ const drawMatch = (
             }
         );
 
-        // =====================================================
-        // JURI
-        // =====================================================
-
         drawCell(
             doc,
             xJuri,
@@ -757,10 +643,6 @@ const drawMatch = (
                 ellipsis: true,
             }
         );
-
-        // =====================================================
-        // ROUND 1
-        // =====================================================
 
         const round1 =
             row?.rounds?.[1] || {};
@@ -794,10 +676,6 @@ const drawMatch = (
             }
         );
 
-        // =====================================================
-        // ROUND 2
-        // =====================================================
-
         const round2 =
             row?.rounds?.[2] || {};
 
@@ -829,10 +707,6 @@ const drawMatch = (
                 fontSize: 7,
             }
         );
-
-        // =====================================================
-        // ROUND 3
-        // =====================================================
 
         const round3 =
             row?.rounds?.[3] || {};
@@ -866,14 +740,6 @@ const drawMatch = (
             }
         );
 
-        // =====================================================
-        // SELISIH
-        //
-        // Baris 1 = selisih P1
-        // Baris 2 = selisih P2
-        // Baris 3 = kosong
-        // =====================================================
-
         let selisih = "";
 
         if (index === 0) {
@@ -896,14 +762,6 @@ const drawMatch = (
                 fontSize: 7,
             }
         );
-
-        // =====================================================
-        // TOTAL
-        //
-        // Baris 1 = total P1
-        // Baris 2 = total P2
-        // Baris 3 = kosong
-        // =====================================================
 
         let total = "";
 
@@ -933,10 +791,6 @@ const drawMatch = (
 
         currentY += rowHeight;
     }
-
-    // =========================================================
-    // PEMENANG
-    // =========================================================
 
     doc.y =
         currentY + 7;
@@ -974,9 +828,6 @@ const drawMatch = (
     doc.moveDown(1);
 };
 
-// =============================================================
-// GENERATE PERTANDINGAN PDF
-// =============================================================
 const generatePertandinganPdf = ({
     matches,
     babak = "semua",
@@ -1084,438 +935,969 @@ const generatePertandinganPdf = ({
         }
     );
 
-// =============================================================
-// GENERATE BRACKET PDF
-// =============================================================
-const generateBracketPdf = ({
-    matches,
-}) =>
-    new Promise(
-        (resolve, reject) => {
-            const doc =
-                new PDFDocument({
-                    size: "A3",
-                    layout: "landscape",
+const generateBracketPdf = ({ matches = [] }) =>
+    new Promise((resolve, reject) => {
+        try {
+            const PDFDocument = require("pdfkit");
 
-                    margins: {
-                        top: 35,
-                        bottom: 35,
-                        left: 30,
-                        right: 30,
-                    },
-
-                    info: {
-                        Title:
-                            "Tournament Bracket",
-                        Author:
-                            "Digital Scoring",
-                    },
-                });
+            const doc = new PDFDocument({
+                size: "A3",
+                layout: "landscape",
+                margins: {
+                    top: 25,
+                    bottom: 25,
+                    left: 25,
+                    right: 25,
+                },
+                info: {
+                    Title: "Tournament Bracket",
+                    Author: "Digital Scoring",
+                },
+            });
 
             const chunks = [];
 
-            doc.on(
-                "data",
-                (chunk) =>
-                    chunks.push(chunk)
-            );
+            doc.on("data", (chunk) => {
+                chunks.push(chunk);
+            });
 
-            doc.on(
-                "end",
-                () =>
-                    resolve(
-                        Buffer.concat(
-                            chunks
-                        )
-                    )
-            );
+            doc.on("end", () => {
+                resolve(Buffer.concat(chunks));
+            });
 
-            doc.on(
-                "error",
-                reject
-            );
+            doc.on("error", reject);
 
-            drawHeader(
-                doc,
-                "TOURNAMENT BRACKET",
-                "Bagan keseluruhan pertandingan"
-            );
+            const stages = {
+                penyisihan: [],
+                enam_belas_besar: [],
+                perempat_final: [],
+                semi_final: [],
+                final: [],
+                bronze_final: [],
+            };
 
-            if (!matches.length) {
-                doc
-                    .font("Helvetica")
-                    .fontSize(12)
-                    .text(
-                        "Belum ada pertandingan."
-                    );
+            matches.forEach((match) => {
+                if (stages[match.babak]) {
+                    stages[match.babak].push(match);
+                }
+            });
 
-                doc.end();
-                return;
-            }
-
-            const stages = [
-                "penyisihan",
-                "enam_belas_besar",
-                "perempat_final",
-                "semi_final",
-                "final",
-            ];
-
-            const grouped =
-                Object.fromEntries(
-                    stages.map(
-                        (stage) => [
-                            stage,
-                            matches.filter(
-                                (match) =>
-                                    match.babak ===
-                                    stage
-                            ),
-                        ]
-                    )
+            Object.values(stages).forEach((stage) => {
+                stage.sort(
+                    (a, b) =>
+                        Number(a.id) -
+                        Number(b.id)
                 );
+            });
 
-            const availableWidth =
+            const penyisihan =
+                stages.penyisihan;
+
+            const enamBelasBesar =
+                stages.enam_belas_besar;
+
+            const perempatFinal =
+                stages.perempat_final;
+
+            const semiFinal =
+                stages.semi_final;
+
+            const finalMatches =
+                stages.final;
+
+            const bronzeFinal =
+                stages.bronze_final;
+
+            const pageWidth =
                 doc.page.width -
                 doc.page.margins.left -
                 doc.page.margins.right;
 
-            const stageGap = 16;
+            const pageHeight =
+                doc.page.height -
+                doc.page.margins.top -
+                doc.page.margins.bottom;
 
-            const stageWidth =
+            const startX =
+                doc.page.margins.left;
+
+            doc
+                .font("Helvetica-Bold")
+                .fontSize(22)
+                .fillColor("#000000")
+                .text(
+                    "TOURNAMENT BRACKET",
+                    startX,
+                    25,
+                    {
+                        width: pageWidth,
+                        align: "center",
+                    }
+                );
+
+            const columnGap = 12;
+
+            const columnWidth =
                 (
-                    availableWidth -
-                    stageGap *
-                    (stages.length - 1)
-                ) /
-                stages.length;
-            // Atur tinggi card border
-            const top = 100;
-            const cardHeight = 52;
+                    pageWidth -
+                    columnGap * 8
+                ) / 9;
 
-            stages.forEach(
-                (
-                    stage,
-                    stageIndex
-                ) => {
-                    const stageMatches =
-                        grouped[stage] ||
-                        [];
+            const columnX = [];
 
-                    const x =
-                        doc.page.margins.left +
-                        stageIndex *
-                        (
-                            stageWidth +
-                            stageGap
-                        );
+            for (let i = 0; i < 9; i++) {
+                columnX.push(
+                    startX +
+                    i *
+                    (
+                        columnWidth +
+                        columnGap
+                    )
+                );
+            }
 
-                    doc
-                        .font(
-                            "Helvetica-Bold"
-                        )
-                        .fontSize(10)
-                        .fillColor("#000000")
-                        .text(
-                            formatBabak(
-                                stage
-                            ),
-                            x,
-                            80, // Atur tinggi header
-                            {
-                                width:
-                                    stageWidth,
-                                align:
-                                    "center",
-                            }
-                        );
+            const headers = [
+                "PENYISIHAN",
+                "16 BESAR",
+                "PEREMPAT FINAL",
+                "SEMI FINAL",
+                "",
+                "SEMI FINAL",
+                "PEREMPAT FINAL",
+                "16 BESAR",
+                "PENYISIHAN",
+            ];
 
-                    if (
-                        !stageMatches.length
-                    ) {
-                        doc
-                            .font(
-                                "Helvetica"
-                            )
-                            .fontSize(7)
-                            .text(
-                                "Belum ada pertandingan",
-                                x,
-                                top,
-                                {
-                                    width:
-                                        stageWidth,
-                                    align:
-                                        "center",
-                                }
-                            );
+            const headerY = 65;
 
+            headers.forEach(
+                (header, index) => {
+                    if (!header) {
                         return;
                     }
 
-                    const spacing =
-                        Math.max(
-                            12,
-                            Math.min(
-                                15,
-                                (
-                                    doc.page.height -
-                                    250
-                                ) /
-                                    stageMatches.length -
-                                    cardHeight
-                            )
+                    doc
+                        .font("Helvetica-Bold")
+                        .fontSize(8)
+                        .fillColor("#000000")
+                        .text(
+                            header,
+                            columnX[index],
+                            headerY,
+                            {
+                                width:
+                                    columnWidth,
+                                align: "center",
+                                lineBreak: false,
+                            }
                         );
-
-                    stageMatches.forEach(
-                        (
-                            match,
-                            matchIndex
-                        ) => {
-                            const y =
-                                top +
-                                matchIndex *
-                                (
-                                    cardHeight +
-                                    spacing
-                                );
-
-                            doc
-                                .roundedRect(
-                                    x,
-                                    y,
-                                    stageWidth,
-                                    cardHeight,
-                                    5
-                                )
-                                .stroke();
-
-                            const half =
-                                cardHeight /
-                                2;
-
-                            const winner1 =
-                                Number(
-                                    match.winner_id
-                                ) ===
-                                Number(
-                                    match
-                                        .peserta1
-                                        .id
-                                );
-
-                            const winner2 =
-                                Number(
-                                    match.winner_id
-                                ) ===
-                                Number(
-                                    match
-                                        .peserta2
-                                        ?.id
-                                );
-
-                            doc
-                                .fontSize(7);
-
-                            doc.font(
-                                winner1
-                                    ? "Helvetica-Bold"
-                                    : "Helvetica"
-                            );
-
-                            doc.text(
-                                `${
-                                    winner1
-                                        ? "★ "
-                                        : ""
-                                }${
-                                    match
-                                        .peserta1
-                                        .nama
-                                }`,
-                                x + 7,
-                                y + 7,
-                                {
-                                    width:
-                                        stageWidth *
-                                        0.72,
-                                    ellipsis:
-                                        true,
-                                }
-                            );
-
-                            doc.text(
-                                String(
-                                    match
-                                        .peserta1
-                                        .score ??
-                                    0
-                                ),
-                                x +
-                                    stageWidth *
-                                    0.76,
-                                y + 7,
-                                {
-                                    width:
-                                        stageWidth *
-                                        0.18,
-                                    align:
-                                        "right",
-                                }
-                            );
-
-                            if (
-                                match.peserta2
-                            ) {
-                                doc.font(
-                                    winner2
-                                        ? "Helvetica-Bold"
-                                        : "Helvetica"
-                                );
-
-                                doc.text(
-                                    `${
-                                        winner2
-                                            ? "★ "
-                                            : ""
-                                    }${
-                                        match
-                                            .peserta2
-                                            .nama
-                                    }`,
-                                    x + 7,
-                                    y +
-                                        half +
-                                        7,
-                                    {
-                                        width:
-                                            stageWidth *
-                                            0.72,
-                                        ellipsis:
-                                            true,
-                                    }
-                                );
-
-                                doc.text(
-                                    String(
-                                        match
-                                            .peserta2
-                                            .score ??
-                                        0
-                                    ),
-                                    x +
-                                        stageWidth *
-                                        0.76,
-                                    y +
-                                        half +
-                                        7,
-                                    {
-                                        width:
-                                            stageWidth *
-                                            0.18,
-                                        align:
-                                            "right",
-                                    }
-                                );
-                            } else {
-                                doc
-                                    .font(
-                                        "Helvetica"
-                                    )
-                                    .fontSize(7)
-                                    .text(
-                                        "BYE",
-                                        x + 7,
-                                        y +
-                                            half +
-                                            7
-                                    );
-                            }
-
-                            // Garis pembatas peserta
-                            doc
-                                .moveTo(
-                                    x,
-                                    y + half
-                                )
-                                .lineTo(
-                                    x +
-                                        stageWidth,
-                                    y + half
-                                )
-                                .stroke();
-
-                            // Konektor
-                            if (
-                                stageIndex <
-                                stages.length -
-                                    1
-                            ) {
-                                const nextX =
-                                    x +
-                                    stageWidth +
-                                    stageGap;
-
-                                const connectorY =
-                                    y +
-                                    cardHeight /
-                                        2;
-
-                                doc
-                                    .moveTo(
-                                        x +
-                                            stageWidth,
-                                        connectorY
-                                    )
-                                    .lineTo(
-                                        nextX,
-                                        connectorY
-                                    )
-                                    .stroke();
-                            }
-                        }
-                    );
                 }
             );
 
-            const finalMatch =
-                grouped.final?.[0] ||
-                null;
+            const cardHeight = 42;
 
-            if (
-                finalMatch?.winner_id
-            ) {
-                const winner =
-                    Number(
-                        finalMatch.winner_id
-                    ) ===
-                    Number(
-                        finalMatch
-                            .peserta1
-                            .id
-                    )
-                        ? finalMatch.peserta1
-                        : finalMatch.peserta2;
+            const rowHeight =
+                cardHeight / 2;
 
-                if (winner) {
-                    doc
-                        .font(
-                            "Helvetica-Bold"
-                        )
-                        .fontSize(12)
-                        .text(
-                            `JUARA: ${winner.nama}`,
-                            {
-                                align:
-                                    "center",
-                            }
-                        );
+            const bracketTop = 100;
+
+            const bracketBottom =
+                pageHeight - 15;
+
+            const bracketHeight =
+                bracketBottom -
+                bracketTop;
+
+            const firstRoundPositions = (
+                count
+            ) => {
+                if (!count) {
+                    return [];
                 }
+
+                const slotHeight =
+                    bracketHeight /
+                    count;
+
+                return Array.from(
+                    {
+                        length: count,
+                    },
+                    (_, index) =>
+                        bracketTop +
+                        index *
+                        slotHeight +
+                        (
+                            slotHeight -
+                            cardHeight
+                        ) /
+                        2
+                );
+            };
+
+            const leftPositions = [];
+
+            leftPositions[0] =
+                firstRoundPositions(
+                    8
+                );
+
+            leftPositions[1] = [];
+            leftPositions[2] = [];
+            leftPositions[3] = [];
+
+            const calculateNextPositions = (
+                previousPositions,
+                count
+            ) => {
+                const result = [];
+
+                for (
+                    let i = 0;
+                    i < count;
+                    i++
+                ) {
+                    const first =
+                        previousPositions[
+                        i * 2
+                        ];
+
+                    const second =
+                        previousPositions[
+                        i * 2 + 1
+                        ];
+
+                    if (
+                        first !==
+                        undefined &&
+                        second !==
+                        undefined
+                    ) {
+                        result.push(
+                            (
+                                first +
+                                second
+                            ) /
+                            2
+                        );
+                    }
+                }
+
+                return result;
+            };
+
+            leftPositions[1] =
+                calculateNextPositions(
+                    leftPositions[0],
+                    4
+                );
+
+            leftPositions[2] =
+                calculateNextPositions(
+                    leftPositions[1],
+                    2
+                );
+
+            leftPositions[3] =
+                calculateNextPositions(
+                    leftPositions[2],
+                    1
+                );
+
+            const rightPositions = [];
+
+            rightPositions[0] =
+                firstRoundPositions(
+                    8
+                );
+
+            rightPositions[1] =
+                calculateNextPositions(
+                    rightPositions[0],
+                    4
+                );
+
+            rightPositions[2] =
+                calculateNextPositions(
+                    rightPositions[1],
+                    2
+                );
+
+            rightPositions[3] =
+                calculateNextPositions(
+                    rightPositions[2],
+                    1
+                );
+
+            const semiCenter =
+                leftPositions[3][0] +
+                cardHeight / 2;
+
+            const finalY =
+                semiCenter -
+                cardHeight -
+                25;
+
+            const bronzeY =
+                semiCenter +
+                25;
+
+            // =====================================================
+            // DRAW PARTICIPANT
+            // =====================================================
+
+            const drawParticipant = ({
+                x,
+                y,
+                width,
+                height,
+                peserta,
+                winner,
+            }) => {
+                if (!peserta) {
+                    return;
+                }
+
+                const name =
+                    peserta.nama ||
+                    peserta.name ||
+                    "-";
+
+                const score =
+                    peserta.score ??
+                    "";
+
+                doc
+                    .font(
+                        winner
+                            ? "Helvetica-Bold"
+                            : "Helvetica"
+                    )
+                    .fontSize(8)
+                    .fillColor("#000000");
+
+                doc.text(
+                    name,
+                    x + 7,
+                    y + 5,
+                    {
+                        width:
+                            width * 0.70,
+                        height:
+                            height - 5,
+                        ellipsis: true,
+                        lineBreak: false,
+                    }
+                );
+
+                doc.text(
+                    String(score),
+                    x +
+                    width * 0.78,
+                    y + 5,
+                    {
+                        width:
+                            width * 0.15,
+                        align: "right",
+                        lineBreak: false,
+                    }
+                );
+            };
+
+            // =====================================================
+            // DRAW MATCH CARD
+            // =====================================================
+
+            const drawMatchCard = (
+                match,
+                x,
+                y
+            ) => {
+                if (!match) {
+                    return;
+                }
+
+                const peserta1 =
+                    match.peserta1 ||
+                    null;
+
+                const peserta2 =
+                    match.peserta2 ||
+                    null;
+
+                const winnerId =
+                    match.winner_id !==
+                        null &&
+                        match.winner_id !==
+                        undefined
+                        ? Number(
+                            match.winner_id
+                        )
+                        : null;
+
+                const winner1 =
+                    winnerId !== null &&
+                    peserta1 &&
+                    Number(
+                        peserta1.id
+                    ) === winnerId;
+
+                const winner2 =
+                    winnerId !== null &&
+                    peserta2 &&
+                    Number(
+                        peserta2.id
+                    ) === winnerId;
+
+                doc
+                    .lineWidth(0.6)
+                    .roundedRect(
+                        x,
+                        y,
+                        columnWidth,
+                        cardHeight,
+                        4
+                    )
+                    .stroke();
+
+                doc
+                    .lineWidth(0.4)
+                    .moveTo(
+                        x,
+                        y + rowHeight
+                    )
+                    .lineTo(
+                        x +
+                        columnWidth,
+                        y + rowHeight
+                    )
+                    .stroke();
+
+                drawParticipant({
+                    x,
+                    y,
+                    width: columnWidth,
+                    height: rowHeight,
+                    peserta: peserta1,
+                    winner: winner1,
+                });
+
+                drawParticipant({
+                    x,
+                    y:
+                        y + rowHeight,
+                    width: columnWidth,
+                    height: rowHeight,
+                    peserta: peserta2,
+                    winner: winner2,
+                });
+            };
+
+            const drawLeftStage = (
+                stage,
+                matches,
+                positions
+            ) => {
+                matches.forEach(
+                    (match, index) => {
+                        if (
+                            positions[
+                            index
+                            ] === undefined
+                        ) {
+                            return;
+                        }
+
+                        drawMatchCard(
+                            match,
+                            columnX[
+                            stage
+                            ],
+                            positions[
+                            index
+                            ]
+                        );
+                    }
+                );
+            };
+
+            drawLeftStage(
+                0,
+                penyisihan.slice(0, 8),
+                leftPositions[0]
+            );
+
+            drawLeftStage(
+                1,
+                enamBelasBesar.slice(
+                    0,
+                    4
+                ),
+                leftPositions[1]
+            );
+
+            drawLeftStage(
+                2,
+                perempatFinal.slice(
+                    0,
+                    2
+                ),
+                leftPositions[2]
+            );
+
+            drawLeftStage(
+                3,
+                semiFinal.slice(
+                    0,
+                    1
+                ),
+                leftPositions[3]
+            );
+
+            const drawRightStage = (
+                stage,
+                matches,
+                positions
+            ) => {
+                matches.forEach(
+                    (match, index) => {
+                        if (
+                            positions[
+                            index
+                            ] === undefined
+                        ) {
+                            return;
+                        }
+
+                        drawMatchCard(
+                            match,
+                            columnX[
+                            stage
+                            ],
+                            positions[
+                            index
+                            ]
+                        );
+                    }
+                );
+            };
+
+            drawRightStage(
+                8,
+                penyisihan
+                    .slice(8, 16)
+                    .reverse(),
+                rightPositions[0]
+            );
+
+            drawRightStage(
+                7,
+                enamBelasBesar
+                    .slice(4, 8)
+                    .reverse(),
+                rightPositions[1]
+            );
+
+            drawRightStage(
+                6,
+                perempatFinal
+                    .slice(2, 4)
+                    .reverse(),
+                rightPositions[2]
+            );
+
+            drawRightStage(
+                5,
+                semiFinal
+                    .slice(1, 2)
+                    .reverse(),
+                rightPositions[3]
+            );
+
+            if (finalMatches.length > 0) {
+                drawMatchCard(
+                    finalMatches[0],
+                    columnX[4],
+                    finalY
+                );
             }
 
+            if (bronzeFinal.length > 0) {
+                drawMatchCard(
+                    bronzeFinal[0],
+                    columnX[4],
+                    bronzeY
+                );
+            }
+
+            const drawLine = (
+                x1,
+                y1,
+                x2,
+                y2
+            ) => {
+                doc
+                    .lineWidth(0.6)
+                    .moveTo(x1, y1)
+                    .lineTo(x2, y2)
+                    .stroke();
+            };
+
+            const connectLeft = (
+                fromPositions,
+                toPositions,
+                fromColumn,
+                toColumn
+            ) => {
+                for (
+                    let i = 0;
+                    i < toPositions.length;
+                    i++
+                ) {
+                    const first =
+                        fromPositions[
+                        i * 2
+                        ];
+
+                    const second =
+                        fromPositions[
+                        i * 2 + 1
+                        ];
+
+                    const target =
+                        toPositions[i];
+
+                    if (
+                        first ===
+                        undefined ||
+                        second ===
+                        undefined ||
+                        target ===
+                        undefined
+                    ) {
+                        continue;
+                    }
+
+                    const fromX =
+                        columnX[
+                        fromColumn
+                        ] +
+                        columnWidth;
+
+                    const toX =
+                        columnX[
+                        toColumn
+                        ];
+
+                    const middleX =
+                        (
+                            fromX +
+                            toX
+                        ) / 2;
+
+                    const firstY =
+                        first +
+                        cardHeight / 2;
+
+                    const secondY =
+                        second +
+                        cardHeight / 2;
+
+                    const targetY =
+                        target +
+                        cardHeight / 2;
+
+                    drawLine(
+                        fromX,
+                        firstY,
+                        middleX,
+                        firstY
+                    );
+
+                    drawLine(
+                        fromX,
+                        secondY,
+                        middleX,
+                        secondY
+                    );
+
+                    drawLine(
+                        middleX,
+                        firstY,
+                        middleX,
+                        secondY
+                    );
+
+                    drawLine(
+                        middleX,
+                        targetY,
+                        toX,
+                        targetY
+                    );
+                }
+            };
+
+            connectLeft(
+                leftPositions[0],
+                leftPositions[1],
+                0,
+                1
+            );
+
+            connectLeft(
+                leftPositions[1],
+                leftPositions[2],
+                1,
+                2
+            );
+
+            connectLeft(
+                leftPositions[2],
+                leftPositions[3],
+                2,
+                3
+            );
+
+            const connectRight = (
+                fromPositions,
+                toPositions,
+                fromColumn,
+                toColumn
+            ) => {
+                for (
+                    let i = 0;
+                    i < toPositions.length;
+                    i++
+                ) {
+                    const first =
+                        fromPositions[
+                        i * 2
+                        ];
+
+                    const second =
+                        fromPositions[
+                        i * 2 + 1
+                        ];
+
+                    const target =
+                        toPositions[i];
+
+                    if (
+                        first ===
+                        undefined ||
+                        second ===
+                        undefined ||
+                        target ===
+                        undefined
+                    ) {
+                        continue;
+                    }
+
+                    const fromX =
+                        columnX[
+                        fromColumn
+                        ];
+
+                    const toX =
+                        columnX[
+                        toColumn
+                        ] +
+                        columnWidth;
+
+                    const middleX =
+                        (
+                            fromX +
+                            toX
+                        ) / 2;
+
+                    const firstY =
+                        first +
+                        cardHeight / 2;
+
+                    const secondY =
+                        second +
+                        cardHeight / 2;
+
+                    const targetY =
+                        target +
+                        cardHeight / 2;
+
+                    drawLine(
+                        fromX,
+                        firstY,
+                        middleX,
+                        firstY
+                    );
+
+                    drawLine(
+                        fromX,
+                        secondY,
+                        middleX,
+                        secondY
+                    );
+
+                    drawLine(
+                        middleX,
+                        firstY,
+                        middleX,
+                        secondY
+                    );
+
+                    drawLine(
+                        middleX,
+                        targetY,
+                        toX,
+                        targetY
+                    );
+                }
+            };
+
+            connectRight(
+                rightPositions[0],
+                rightPositions[1],
+                8,
+                7
+            );
+
+            connectRight(
+                rightPositions[1],
+                rightPositions[2],
+                7,
+                6
+            );
+
+            connectRight(
+                rightPositions[2],
+                rightPositions[3],
+                6,
+                5
+            );
+
+            const leftSemiY =
+                leftPositions[3][0] +
+                cardHeight / 2;
+
+            const rightSemiY =
+                rightPositions[3][0] +
+                cardHeight / 2;
+
+            const finalCenterX =
+                columnX[4];
+
+            drawLine(
+                columnX[3] +
+                columnWidth,
+                leftSemiY,
+                finalCenterX,
+                finalY +
+                cardHeight / 2
+            );
+
+            drawLine(
+                columnX[5],
+                rightSemiY,
+                finalCenterX +
+                columnWidth,
+                finalY +
+                cardHeight / 2
+            );
+
+            const bronzeCenterY =
+                bronzeY +
+                cardHeight / 2;
+
+            drawLine(
+                columnX[3] +
+                columnWidth,
+                leftSemiY,
+                columnX[3] +
+                columnWidth +
+                8,
+                leftSemiY
+            );
+
+            drawLine(
+                columnX[3] +
+                columnWidth +
+                8,
+                leftSemiY,
+                columnX[3] +
+                columnWidth +
+                8,
+                bronzeCenterY
+            );
+
+            drawLine(
+                columnX[3] +
+                columnWidth +
+                8,
+                bronzeCenterY,
+                finalCenterX,
+                bronzeCenterY
+            );
+
+            drawLine(
+                columnX[5],
+                rightSemiY,
+                columnX[5] -
+                8,
+                rightSemiY
+            );
+
+            drawLine(
+                columnX[5] -
+                8,
+                rightSemiY,
+                columnX[5] -
+                8,
+                bronzeCenterY
+            );
+
+            drawLine(
+                columnX[5] -
+                8,
+                bronzeCenterY,
+                finalCenterX +
+                columnWidth,
+                bronzeCenterY
+            );
+
+            doc
+                .font("Helvetica-Bold")
+                .fontSize(9)
+                .fillColor("#000000")
+                .text(
+                    "FINAL",
+                    columnX[4],
+                    finalY - 16,
+                    {
+                        width:
+                            columnWidth,
+                        align: "center",
+                    }
+                );
+
+            doc
+                .font("Helvetica-Bold")
+                .fontSize(9)
+                .fillColor("#000000")
+                .text(
+                    "BRONZE FINAL",
+                    columnX[4],
+                    bronzeY +
+                    cardHeight +
+                    7,
+                    {
+                        width:
+                            columnWidth,
+                        align: "center",
+                    }
+                );
             doc.end();
+        } catch (error) {
+            reject(error);
         }
-    );
+    });
 
 module.exports = {
     generatePertandinganPdf,
